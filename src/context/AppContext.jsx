@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { useAuth } from '../hooks/useAuth'
-import { useWallet } from '../hooks/useWallet'
-import { useCourts } from '../hooks/useCourts'
-import { useAllotments } from '../hooks/useAllotments'
+import { useAuth } from './AuthContext'
+import { useWallet } from './WalletContext'
+import { useBooking as useCourts } from './BookingContext'
+import { useBooking as useAllotments } from './BookingContext'
 import { api } from '../services/api'
 import { MOCKED_DB } from '../data/constants'
 
@@ -15,7 +15,7 @@ export const AppProvider = ({ children }) => {
   const { courts, setCourts, fetchCourtsMetadata } = useCourts()
   const { fetchStatus } = useAllotments(setCourts)
 
-  // 2. Shared Meta State
+  // 3. Shared Meta State
   const [mockDatabase, setMockDatabase] = useState(() => {
     try {
       const saved = localStorage.getItem('court_users_db')
@@ -29,14 +29,15 @@ export const AppProvider = ({ children }) => {
     adminPassword: 'admin' // default fallback
   })
 
-  const [bookingHistory, setBookingHistory] = useState([])
+  const [userHistory, setUserHistory] = useState([])
+  const [adminBookings, setAdminBookings] = useState([])
 
-  // 3. Shared Actions
+  // 4. Shared Actions
   const fetchUserHistory = async (userId) => {
     if (!userId) return
     try {
       const data = await api.getUserHistory(userId)
-      if (Array.isArray(data)) setBookingHistory(data)
+      if (Array.isArray(data)) setUserHistory(data)
     } catch (err) { console.error('Fetch history error:', err) }
   }
 
@@ -45,8 +46,12 @@ export const AppProvider = ({ children }) => {
     try {
       const data = await api.getAdminBookings(date)
       if (Array.isArray(data)) {
-        setBookingHistory(data.map(b => ({
-          ...b, court: b.court_name, time: b.booking_time, date: b.booking_date,
+        setAdminBookings(data.map(b => ({
+          ...b, 
+          court: b.court_name, 
+          hour: b.booking_time, // Fix for NaN:00
+          date: b.booking_date,
+          status: b.status,
           user: { name: b.user_name, phone: b.user_phone }
         })))
       }
@@ -61,18 +66,16 @@ export const AppProvider = ({ children }) => {
     })
   }
 
-  // 4. Coordinated Background Polling
+  // 5. Coordinated Background Polling
   useEffect(() => {
     fetchStatus()
     fetchCourtsMetadata()
     if (user?.id) {
-      fetchUserBalance()
       fetchUserHistory(user.id)
     }
 
     const interval = setInterval(() => {
       fetchStatus()
-      if (user?.id) fetchUserBalance()
     }, 30000)
     return () => clearInterval(interval)
   }, [user?.id])
@@ -81,7 +84,8 @@ export const AppProvider = ({ children }) => {
     user, setUser, adminUser, setAdminUser, login, register,
     walletBalance, setWalletBalance, fetchUserBalance, updateWallet,
     courts, setCourts, fetchCourtsMetadata, fetchStatus,
-    bookingHistory, setBookingHistory, fetchUserHistory, fetchAdminBookings,
+    userHistory, setUserHistory, adminBookings, setAdminBookings,
+    fetchUserHistory, fetchAdminBookings,
     mockDatabase, setMockDatabase, updateUserDB,
     apiSettings, setApiSettings
   }

@@ -4,7 +4,7 @@ import { AppProvider } from './context/AppContext'
 import { AuthProvider } from './context/AuthContext'
 import { WalletProvider } from './context/WalletContext'
 import { BookingProvider } from './context/BookingContext'
-import App from './App'
+import AdminApp from './AdminApp'
 import './index.css'
 
 const root = document.getElementById('root')
@@ -15,7 +15,7 @@ if (root) {
         <WalletProvider>
           <BookingProvider>
             <AppProvider>
-              <App />
+              <AdminApp />
             </AppProvider>
           </BookingProvider>
         </WalletProvider>

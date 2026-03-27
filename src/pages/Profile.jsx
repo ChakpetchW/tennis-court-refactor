@@ -1,7 +1,7 @@
 import React from 'react'
 import { Calendar, UserCheck } from 'lucide-react'
 
-function ProfileDashboard({ user, walletBalance, onStartBooking, onAdmin }) {
+function ProfileDashboard({ user, walletBalance, onStartBooking }) {
   const infoItems = [
     { label: 'ชื่อ-นามสกุล', value: user?.name || '-' },
     { label: 'ชื่อเล่น', value: user?.nickname || '-' },

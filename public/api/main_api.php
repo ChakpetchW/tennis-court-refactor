@@ -39,9 +39,38 @@ try {
     exit;
 }
 
-$action = isset($_GET['action']) ? $_GET['action'] : '';
+$requestedAction = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
 
-switch($action) {
+switch($requestedAction) {
+    case 'ping':
+        echo json_encode(["ping" => "pong", "received" => $requestedAction]);
+        break;
+
+    case 'version':
+        echo json_encode(["version" => "2.6 (Subdirectory Fix)", "db" => $db_name]);
+        break;
+
+    case 'get_audit_logs':
+        // Diagnostic: Log that admin requested logs
+        $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+        $logStmt->execute(['SYSTEM_REPORT', 'Administrator viewed audit logs', 'System']);
+        
+        $stmt = $conn->query("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100");
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        break;
+
+    case 'get_wallet_transactions':
+        $stmt = $conn->query("
+            SELECT wt.*, u.name as user_name, u.phone as user_phone 
+            FROM wallet_transactions wt 
+            LEFT JOIN users u ON wt.user_id = u.id 
+            ORDER BY wt.created_at DESC 
+            LIMIT 200
+        ");
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode($results);
+        break;
+
     case 'login':
         $data = json_decode(file_get_contents("php://input"));
         $stmt = $conn->prepare("SELECT id, phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance FROM users WHERE phone = ?");
@@ -187,6 +216,11 @@ switch($action) {
                 ");
                 $stmtAlloc->execute([$row['court_id'], $row['booking_date'], $row['booking_time'], $userName]);
                 
+                // LOG ACTION
+                $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+                $logDetails = "Auto-Confirmed (Omise): " . $userName . " | " . $row['booking_date'] . " " . $row['booking_time'] . " | Ref: " . $chargeId;
+                $logStmt->execute(['PAYMENT_AUTO', $logDetails, 'System']);
+
                 $row['status'] = 'Paid';
                 $row['transaction_ref'] = $chargeId;
             } else if (isset($charge['code'])) {
@@ -252,22 +286,28 @@ switch($action) {
         if (isset($data->booking_id)) {
             $stmt = $conn->prepare("UPDATE bookings SET status='Paid', payment_provider=? WHERE id=?");
             $stmt->execute([$data->payment_provider ?? 'manual', $data->booking_id]);
-            echo json_encode(["success" => true, "id" => $data->booking_id, "updated" => true]);
         } else {
             $stmt = $conn->prepare("INSERT INTO bookings (user_id, court_id, booking_date, booking_time, price, status, payment_provider) VALUES (?, ?, ?, ?, ?, 'Paid', ?)");
             $stmt->execute([$data->user_id, $data->court_id, $data->date, $data->hour, $data->price, $data->payment_provider ?? 'manual']);
-            echo json_encode(["success" => true, "id" => $conn->lastInsertId(), "created" => true]);
         }
+
+        // 3. LOG ACTION
+        $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+        $ref = $data->transaction_ref ?? $data->ref ?? 'N/A';
+        $details = "Payment Confirmed for " . ($data->user_name ?? 'User') . " on " . $data->date . " " . $data->hour . " (฿" . ($data->price ?? 0) . ") | Ref: " . $ref;
+        $logStmt->execute(['PAYMENT_CONFIRM', $details, 'System']);
+
+        echo json_encode(["success" => true, "id" => $conn->lastInsertId(), "created" => true]);
         break;
 
     case 'get_admin_bookings':
         $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
-        // Fetch real bookings joined with user and court info
+        // Fetch real bookings joined with user and court info (use LEFT JOIN for robustness)
         $stmt = $conn->prepare("
             SELECT b.*, u.name as user_name, u.phone as user_phone, c.name as court_name 
             FROM bookings b 
-            JOIN users u ON b.user_id = u.id 
-            JOIN courts c ON b.court_id = c.id 
+            LEFT JOIN users u ON b.user_id = u.id 
+            LEFT JOIN courts c ON b.court_id = c.id 
             WHERE b.booking_date = ?
             ORDER BY b.created_at DESC
         ");
@@ -280,10 +320,10 @@ switch($action) {
         if (!$userId) { echo json_encode(["error" => "Missing user_id"]); break; }
         
         $stmt = $conn->prepare("
-            SELECT b.*, c.name as court_name, u.location as venue_name
+            SELECT b.*, c.name as court_name, u.location as venue_name, b.booking_date, b.booking_time
             FROM bookings b 
-            JOIN courts c ON b.court_id = c.id 
-            JOIN users u ON b.user_id = u.id
+            LEFT JOIN courts c ON b.court_id = c.id 
+            LEFT JOIN users u ON b.user_id = u.id
             WHERE b.user_id = ?
             ORDER BY b.created_at DESC
         ");
@@ -367,10 +407,6 @@ switch($action) {
         echo json_encode(["success" => true]);
         break;
 
-    case 'get_audit_logs':
-        $stmt = $conn->query("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100");
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-        break;
 
     case 'get_wallet':
         $data = json_decode(file_get_contents("php://input"));
@@ -436,6 +472,11 @@ switch($action) {
                 ON DUPLICATE KEY UPDATE is_open = 0, booked_by = VALUES(booked_by), pending_by = NULL
             ");
             $stmt->execute([$data->court_id, $data->date, $data->hour, $data->user_name ?? 'Wallet']);
+
+            // 5. LOG ACTION
+            $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+            $details = "Wallet Payment: " . ($data->user_name ?? 'User') . " booked " . $data->date . " " . $data->hour . " (฿" . $amount . ")";
+            $logStmt->execute(['WALLET_PAYMENT', $details, 'System']);
 
             $conn->commit();
             echo json_encode(["success" => true, "booking_id" => $bookingId]);
@@ -525,7 +566,7 @@ switch($action) {
         break;
 
     default:
-        echo json_encode(["error" => "Invalid action"]);
+        echo json_encode(["error" => "Invalid action: " . $requestedAction]);
         break;
 }
 ?>

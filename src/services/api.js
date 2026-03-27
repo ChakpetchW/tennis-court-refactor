@@ -3,7 +3,9 @@
  * Centralizes all fetch calls to the PHP backend.
  */
 
-const BASE_URL = 'api/index.php';
+const BASE_URL = 'api/main_api.php';
+const OMISE_TOPUP_URL = import.meta.env.VITE_OMISE_TOPUP_URL || 'api/omise_topup.php';
+const OMISE_CHARGE_URL = import.meta.env.VITE_OMISE_CHARGE_URL || 'api/omise_charge.php';
 
 const handleResponse = async (response) => {
   if (!response.ok) {
@@ -70,11 +72,11 @@ export const api = {
     return handleResponse(res);
   },
   
-  initiateOmiseTopup: async (userId, amount, type) => {
-    const res = await fetch('api/omise_topup.php', {
+  initiateOmiseTopup: async (userId, amount, type, card = null) => {
+    const res = await fetch(OMISE_TOPUP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, amount, type })
+      body: JSON.stringify({ user_id: userId, amount, type, card })
     });
     return handleResponse(res);
   },
@@ -183,6 +185,10 @@ export const api = {
     const res = await fetch(`${BASE_URL}?action=get_audit_logs`);
     return handleResponse(res);
   },
+  getWalletTransactions: async () => {
+    const res = await fetch(`${BASE_URL}?action=get_wallet_transactions`);
+    return handleResponse(res);
+  },
 
   requestOTP: async (phone, apiSettings) => {
     if (!apiSettings?.otpWebhookUrl) return { success: true, simulated: true };
@@ -205,7 +211,7 @@ export const api = {
   },
 
   createOmiseCharge: async (paymentData) => {
-    const res = await fetch('api/omise_charge.php', {
+    const res = await fetch(OMISE_CHARGE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(paymentData)

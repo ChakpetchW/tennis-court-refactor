@@ -14,21 +14,18 @@ export const Header = ({ onViewChange }) => {
   }
 
   return (
-    <header className="header-nav">
+    <header className="header-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div
         className="brand"
         onClick={() => onViewChange('profile')}
-        style={{ fontWeight: '800', fontSize: '1.3rem', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+        style={{ fontWeight: '800', fontSize: '1.6rem', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
       >
-        <div style={{ background: 'var(--accent-secondary)', color: 'var(--accent-primary)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
-          <CircleDot size={20} strokeWidth={3} />
-        </div>
-        <span style={{ fontFamily: 'var(--font-heading)', letterSpacing: '-0.01em', textTransform: 'uppercase' }}>TENNIS COURT</span>
+        <span style={{ fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em', textTransform: 'uppercase' }}>TENNIS COURT</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setShowMenu(!showMenu)}>
-          <span style={{ fontSize: '0.9rem', color: '#333' }}>{user.name}</span>
-          <Menu size={20} color="#333" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setShowMenu(!showMenu)}>
+          <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1a1a1a' }}>{user.name}</span>
+          <Menu size={28} color="#1a1a1a" />
         </div>
 
         {showMenu && (

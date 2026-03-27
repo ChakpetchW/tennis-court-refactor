@@ -29,7 +29,8 @@ function AdminLogin({ onLoginSuccess, onBack }) {
   }
 
   return (
-    <div className="container flex-center fade-in" style={{ 
+    <div className="flex-center fade-in" style={{ 
+      width: '100%',
       minHeight: '100vh', 
       padding: '40px 20px',
       background: 'linear-gradient(135deg, #1a1a3a 0%, #0a0a1a 100%)',

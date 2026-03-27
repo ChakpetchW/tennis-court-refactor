@@ -46,7 +46,7 @@ try {
             'user_id'        => $user_id,
             'transaction_id' => $transaction_id
         ],
-        'return_uri'        => SITE_URL . '/?topup=success',
+        'return_uri'        => SITE_URL . '/?topup=success&amt=' . $amount,
         'webhook_endpoints' => [SITE_URL . '/api/webhook.php'],
     ];
 
@@ -94,8 +94,18 @@ try {
     $stmt = $conn->prepare("UPDATE wallet_transactions SET charge_id = ? WHERE id = ?");
     $stmt->execute([$chargeRes['id'], $transaction_id]);
 
+    // 4. IMMEDIATE UPDATE if successful (common for non-3DS cards)
+    if (isset($chargeRes['status']) && $chargeRes['status'] === 'successful') {
+        $conn->prepare("UPDATE wallet_transactions SET status = 'Paid' WHERE id = ?")
+             ->execute([$transaction_id]);
+        
+        $conn->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?")
+             ->execute([$amount, $user_id]);
+    }
+
     echo json_encode([
         'success'       => true,
+        'status'        => $chargeRes['status'] ?? 'pending',
         'charge_id'     => $chargeRes['id'],
         'qr_code_uri'   => $chargeRes['source']['scannable_code']['image']['download_uri'] ?? null,
         'authorize_uri' => $chargeRes['authorize_uri'] ?? null

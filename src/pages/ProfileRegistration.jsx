@@ -72,7 +72,7 @@ function ProfileRegistration({ onComplete }) {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
             {/* Nickname */}
             <div className="flex-col gap-sm">
               <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>ชื่อเล่น</label>
@@ -88,13 +88,13 @@ function ProfileRegistration({ onComplete }) {
               <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>อีเมล</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
-                <input type="email" placeholder="email@example.com" style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #eee', fontSize: '1.1rem' }}
+                <input type="email" placeholder="email@example.com" style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #eee', fontSize: '1rem' }}
                   value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
             {/* Line ID */}
             <div className="flex-col gap-sm">
               <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Line ID (ถ้ามี)</label>

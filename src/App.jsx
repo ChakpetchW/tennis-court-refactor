@@ -19,15 +19,13 @@ import ProfileRegistration from './pages/ProfileRegistration'
 import ProfileDashboard from './pages/Profile'
 import Booking from './pages/Booking'
 import Checkout from './pages/Checkout'
-import AdminLogin from './pages/AdminLogin'
-import Admin from './pages/Admin'
 
 function App() {
   // 1. Pull State from Global Context
   const { 
-    user, adminUser, setAdminUser, login, register,
+    user, login, register,
     walletBalance, setWalletBalance, fetchUserBalance, updateWallet,
-    courts, fetchStatus, fetchUserHistory,
+    fetchStatus, fetchUserHistory,
     mockDatabase, updateUserDB, apiSettings
   } = useApp()
 
@@ -48,18 +46,12 @@ function App() {
       window.history.replaceState({}, document.title, window.location.pathname)
       if (user?.id) fetchUserHistory(user.id)
       setView('history')
+    } else if (params.get('topup') === 'success') {
+      // Wallet top-up success handle is done in WalletView, but we ensure we are in wallet view
+      fetchUserBalance()
+      setView('wallet')
     }
   }, [user?.id])
-
-  useEffect(() => {
-    const handleHash = () => {
-      if (window.location.hash === '#admin/login') setView('adminLogin')
-      else if (window.location.hash === '#admin' && adminUser) setView('admin')
-    }
-    window.addEventListener('hashchange', handleHash)
-    if (window.location.hash === '#admin/login') setView('adminLogin')
-    return () => window.removeEventListener('hashchange', handleHash)
-  }, [adminUser])
 
   // 4. Handlers
   const handleLoginSuccess = async (phone) => {
@@ -128,7 +120,7 @@ function App() {
       {view === 'registration' && <ProfileRegistration onComplete={handleRegistrationComplete} />}
       
       {view === 'profile' && (
-        <ProfileDashboard user={user} walletBalance={walletBalance} onStartBooking={() => setView('booking')} onAdmin={() => setView('admin')} />
+        <ProfileDashboard user={user} walletBalance={walletBalance} onStartBooking={() => setView('booking')} />
       )}
       
       {view === 'history' && <HistoryView onBack={() => setView('profile')} />}
@@ -140,20 +132,6 @@ function App() {
       
       {view === 'checkout' && (
         <Checkout booking={currentBooking} onBack={handleCancelBooking} onComplete={handlePaymentComplete} />
-      )}
-      
-      {view === 'admin' && (
-        <Admin 
-          onBack={() => { setView('profile'); window.location.hash = ''; }} 
-          onLogout={() => { setAdminUser(null); setView('login'); window.location.hash = ''; }}
-        />
-      )}
-      
-      {view === 'adminLogin' && (
-        <AdminLogin 
-          onLoginSuccess={(data) => { setAdminUser(data); setView('admin'); window.location.hash = '#admin'; }}
-          onBack={() => { setView('login'); window.location.hash = ''; }}
-        />
       )}
     </div>
   )

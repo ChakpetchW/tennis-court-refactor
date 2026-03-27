@@ -207,7 +207,7 @@ input[type="checkbox"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 24px 32px; /* Increased from 16px 24px */
   background: #ffffff;
   color: #000;
   width: 100%;
@@ -218,11 +218,23 @@ input[type="checkbox"] {
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 
+@media (max-width: 600px) {
+  .header-nav {
+    padding: 20px 24px;
+  }
+}
+
 .app-shell {
-  padding-top: 72px; /* Height of header + gap */
+  padding-top: 96px; /* Increased from 72px to match larger header */
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 600px) {
+  .app-shell {
+    padding-top: 84px;
+  }
 }
 
 .booking-layout-grid {

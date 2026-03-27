@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS `admins` (
 
 -- Seed admin: (Removed for security - added manually)
 
+CREATE TABLE IF NOT EXISTS `audit_logs` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `action` VARCHAR(255) DEFAULT NULL,
+  `details` TEXT DEFAULT NULL,
+  `admin_name` VARCHAR(255) DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `courts` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(50) NOT NULL,
@@ -41,55 +49,16 @@ CREATE TABLE IF NOT EXISTS `courts` (
   `is_active` TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `bookings` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user_id` INT NOT NULL,
-  `court_id` INT NOT NULL,
-  `booking_date` DATE NOT NULL,
-  `booking_time` TIME NOT NULL,
-  `price` DECIMAL(10,2) NOT NULL,
-  `status` ENUM('Pending','Paid','Cancelled') DEFAULT 'Pending',
-  `payment_provider` ENUM('omise','2c2p','wallet','manual') DEFAULT 'omise',
-  `transaction_ref` VARCHAR(100) DEFAULT NULL COMMENT 'charge ID from gateway',
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`),
-  FOREIGN KEY (`court_id`) REFERENCES `courts`(`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `allotments` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `court_id` INT NOT NULL,
-  `date` DATE NOT NULL,
-  `hour` TIME NOT NULL,
-  `is_open` TINYINT(1) DEFAULT 1,
-  `booked_by` VARCHAR(100) DEFAULT NULL,
-  `pending_by` VARCHAR(100) DEFAULT NULL,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY `court_date_hour` (`court_id`, `date`, `hour`),
-  FOREIGN KEY (`court_id`) REFERENCES `courts`(`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `wallet_transactions` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user_id` INT NOT NULL,
-  `amount` DECIMAL(10,2) NOT NULL,
-  `status` ENUM('Pending','Paid','Cancelled') DEFAULT 'Pending',
-  `charge_id` VARCHAR(100) DEFAULT NULL,
-  `payment_type` VARCHAR(50) DEFAULT 'promptpay',
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Seed initial courts
-INSERT IGNORE INTO `courts` (`id`, `name`, `type`) VALUES
-(1, 'North-1', 'Badminton'),
-(2, 'North-2', 'Badminton'),
-(3, 'North-3', 'Badminton'),
-(4, 'Center-1', 'Badminton'),
-(5, 'Center-2', 'Tennis'),
-(6, 'South-1', 'Badminton'),
-(7, 'South-2', 'Badminton'),
-(8, 'South-3', 'Badminton');
+-- Seed initial courts (Matched to Production DB)
+INSERT IGNORE INTO `courts` (`id`, `name`, `type`, `price_per_hour`) VALUES
+(1, 'North-1', 'Badminton', 111.00),
+(2, 'North-2', 'Badminton', 500.00),
+(3, 'North-3', 'Badminton', 200.00),
+(4, 'Center-1', 'Badminton', 600.00),
+(5, 'Center-2', 'Tennis', 500.00),
+(6, 'South-1', 'Badminton', 500.00),
+(7, 'South-2', 'Badminton', 500.00),
+(8, 'South-3', 'Badminton', 500.00);
 
 -- Seed mock user for testing
 INSERT IGNORE INTO `users` (`phone`, `name`, `nickname`, `email`, `birthday`, `wallet_balance`) 

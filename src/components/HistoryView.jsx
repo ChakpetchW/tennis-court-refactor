@@ -3,7 +3,7 @@ import { Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 const HistoryView = ({ onBack }) => {
-  const { bookingHistory } = useApp()
+  const { userHistory } = useApp()
   const [currentPage, setCurrentPage] = useState(1);
   const [monthFilter, setMonthFilter] = useState('all');
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
@@ -25,7 +25,7 @@ const HistoryView = ({ onBack }) => {
   ];
 
   // Filtering
-  const filteredRecords = (bookingHistory || []).filter(b => {
+  const filteredRecords = (userHistory || []).filter(b => {
     const bDate = b.booking_date || b.date;
     if (!bDate) return true;
     const [y, m] = bDate.split('-');
