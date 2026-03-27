@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Mail, Lock, ShieldCheck, ChevronLeft } from 'lucide-react'
+import { api } from '../services/api'
 
 function AdminLogin({ onLoginSuccess, onBack }) {
   const [email, setEmail] = useState('')
@@ -13,12 +14,7 @@ function AdminLogin({ onLoginSuccess, onBack }) {
     setError('')
     
     try {
-      const res = await fetch('api/index.php?action=admin_login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      })
-      const data = await res.json()
+      const data = await api.adminLogin(email, password)
       
       if (data.success) {
         onLoginSuccess(data.user)

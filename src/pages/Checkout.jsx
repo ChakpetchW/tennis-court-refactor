@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { QrCode, Wallet, CreditCard, Landmark, CheckCircle2, ChevronLeft } from 'lucide-react'
+import { api } from '../services/api'
+import { useApp } from '../context/AppContext'
+import { INITIAL_COURTS } from '../data/constants'
 
 const PAYMENT_METHODS = [
   { id: 'qr',      name: 'QR Code',        icon: <QrCode size={26} />,       description: 'PromptPay' },
@@ -7,7 +10,8 @@ const PAYMENT_METHODS = [
   { id: 'credit',  name: 'Credit/Debit',   icon: <CreditCard size={26} />,   description: 'Visa/Master' },
 ]
 
-function Checkout({ user, booking, walletBalance, apiSettings, onBack, onComplete, updateWallet, INITIAL_COURTS }) {
+function Checkout({ booking, onBack, onComplete }) {
+  const { user, walletBalance, updateWallet, apiSettings } = useApp()
   const price = Number(booking?.price || booking?.court?.price_per_hour || booking?.court?.rate || 500)
   const [timeLeft, setTimeLeft]             = useState(900)
   const [selectedMethod, setSelectedMethod] = useState('qr')
@@ -76,10 +80,7 @@ function Checkout({ user, booking, walletBalance, apiSettings, onBack, onComplet
     
     const poll = setInterval(async () => {
       try {
-        const url = `api/index.php?action=check_payment_status&id=${booking.id}&ref=${activeChargeId}&t=${Date.now()}`
-        const res = await fetch(url)
-        if (!res.ok) throw new Error('Network error')
-        const data = await res.json()
+        const data = await api.checkPaymentStatus(booking.id, activeChargeId)
         
         setIsPollingError(false)
         if (data.error) return
@@ -93,7 +94,7 @@ function Checkout({ user, booking, walletBalance, apiSettings, onBack, onComplet
       } catch (e) { 
         setIsPollingError(true)
       }
-    }, 2000) // Lowered to 2s for faster UX
+    }, 2000)
 
     return () => clearInterval(poll)
   }, [showPaymentFlow, chargeInfo, paymentSuccess, booking.id])
@@ -137,23 +138,18 @@ function Checkout({ user, booking, walletBalance, apiSettings, onBack, onComplet
 
       setPayStatus('กำลังประมวลผลการชำระเงิน...');
       const courtRef = INITIAL_COURTS.find(c => c.name === (booking.court?.name || booking.court))
-      const res = await fetch('api/omise_charge.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'credit',
-          card: cardToken,
-          amount: Math.round(price * 100),
-          booking_id: booking.id,
-          court_id: courtRef?.id,
-          customer_name: user.name,
-          phone: user.phone,
-          date: booking.date,
-          hour: booking.time
-        })
+      const data = await api.createOmiseCharge({
+        type: 'credit',
+        card: cardToken,
+        amount: Math.round(price * 100),
+        booking_id: booking.id,
+        court_id: courtRef?.id,
+        customer_name: user.name,
+        phone: user.phone,
+        date: booking.date,
+        hour: booking.time
       });
       
-      const data = await res.json();
       if (data.success) {
         setChargeInfo(data);
         if (data.authorize_uri) {
@@ -206,21 +202,16 @@ function Checkout({ user, booking, walletBalance, apiSettings, onBack, onComplet
     setPayStatus('กำลังสร้าง QR Code...')
     try {
       const courtRef = INITIAL_COURTS.find(c => c.name === (booking.court?.name || booking.court))
-      const res = await fetch('api/omise_charge.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'promptpay',
-          amount: Math.round(price * 100),
-          booking_id: booking.id,
-          court_id: courtRef?.id,
-          customer_name: user.name,
-          phone: user.phone,
-          date: booking.date,
-          hour: booking.time
-        })
+      const data = await api.createOmiseCharge({
+        type: 'promptpay',
+        amount: Math.round(price * 100),
+        booking_id: booking.id,
+        court_id: courtRef?.id,
+        customer_name: user.name,
+        phone: user.phone,
+        date: booking.date,
+        hour: booking.time
       })
-      const data = await res.json()
       if (data.success) {
         setChargeInfo(data)
         setPaymentStep('qr')
@@ -245,9 +236,7 @@ function Checkout({ user, booking, walletBalance, apiSettings, onBack, onComplet
     setIsProcessing(true)
     setPayStatus('กำลังตรวจสอบยอดเงิน...')
     try {
-      const url = `api/index.php?action=check_payment_status&id=${booking.id}&ref=${activeChargeId}`
-      const res = await fetch(url)
-      const data = await res.json()
+      const data = await api.checkPaymentStatus(booking.id, activeChargeId)
       
       const isPaid = ['Paid', 'Confirmed', 'Success'].includes(data.status);
       if (isPaid) {

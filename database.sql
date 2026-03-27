@@ -69,6 +69,17 @@ CREATE TABLE IF NOT EXISTS `allotments` (
   FOREIGN KEY (`court_id`) REFERENCES `courts`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `wallet_transactions` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `amount` DECIMAL(10,2) NOT NULL,
+  `status` ENUM('Pending','Paid','Cancelled') DEFAULT 'Pending',
+  `charge_id` VARCHAR(100) DEFAULT NULL,
+  `payment_type` VARCHAR(50) DEFAULT 'promptpay',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Seed initial courts
 INSERT IGNORE INTO `courts` (`id`, `name`, `type`) VALUES
 (1, 'North-1', 'Badminton'),

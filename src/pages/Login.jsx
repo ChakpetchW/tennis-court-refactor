@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Smartphone, Lock, ArrowRight } from 'lucide-react'
+import { api } from '../services/api'
 
-function Login({ onLoginSuccess, apiSettings }) {
+function Login({ onLoginSuccess }) {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [step, setStep] = useState('phone') // 'phone' or 'otp'
@@ -16,24 +17,16 @@ function Login({ onLoginSuccess, apiSettings }) {
     return () => clearInterval(interval)
   }, [step, timer])
 
-  const handleRequestOTP = (e) => {
+  const handleRequestOTP = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate API call and Webhook trigger
-    if (apiSettings?.otpWebhookUrl) {
-      console.log(`[Webhook] Calling ${apiSettings.otpMethod}: ${apiSettings.otpWebhookUrl}?phone=${phone}`)
-      console.log(`[Credentials] Key: ${apiSettings.otpApiKey}, Secret: ${apiSettings.otpApiSecret ? '****' : 'none'}`)
-      // Simulate fetch
-      fetch(`${apiSettings.otpWebhookUrl}?phone=${encodeURIComponent(phone)}`, { 
-        method: apiSettings.otpMethod,
-        headers: {
-          'X-API-Key': apiSettings.otpApiKey,
-          'X-API-Secret': apiSettings.otpApiSecret
-        }
-      })
-        .catch(err => console.log('Webhook call simulated (expect CORS error in browser if not real):', err))
+
+    try {
+      await api.requestOTP(phone, apiSettings)
+    } catch (err) {
+      console.warn('OTP Request failed or CORS issue:', err)
     }
-    
+
     setTimeout(() => {
       setIsLoading(false)
       setStep('otp')
@@ -65,9 +58,9 @@ function Login({ onLoginSuccess, apiSettings }) {
           <form onSubmit={handleRequestOTP} className="flex-col gap-md">
             <div style={{ position: 'relative' }}>
               <Smartphone size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                type="tel" 
-                placeholder="เบอร์โทรศัพท์ (08x-xxx-xxxx)" 
+              <input
+                type="tel"
+                placeholder="เบอร์โทรศัพท์ (08x-xxx-xxxx)"
                 style={{ width: '100%', paddingLeft: '48px' }}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -86,9 +79,9 @@ function Login({ onLoginSuccess, apiSettings }) {
           <form onSubmit={handleVerifyOTP} className="flex-col gap-md">
             <div style={{ position: 'relative' }}>
               <Lock size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                type="text" 
-                placeholder="รหัส OTP 6 หลัก" 
+              <input
+                type="text"
+                placeholder="รหัส OTP 6 หลัก"
                 maxLength={6}
                 style={{ width: '100%', paddingLeft: '48px', textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem' }}
                 value={otp}

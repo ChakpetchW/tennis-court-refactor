@@ -2,14 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, CheckCircle2, X } from 'lucide-react'
 import courtV from '../assets/court_v.png'
 import courtH from '../assets/court_h.png'
+import { TIME_SLOTS } from '../data/constants'
+import { useApp } from '../context/AppContext'
 
-const TIME_SLOTS = [
-  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', 
-  '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', 
-  '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
-]
-
-function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
+function Booking({ onBack, onCheckout }) {
+  const { user, courts, fetchStatus } = useApp()
   const [step, setStep] = useState(1)
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('sv-SE'))
   const [selectedCourtId, setSelectedCourtId] = useState(null)
@@ -30,17 +27,17 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
   useEffect(() => {
     const d = []
     for (let i = 0; i < 14; i++) {
-        const date = new Date()
-        date.setDate(date.getDate() + i)
-        // Use local date string instead of ISO to avoid UTC jump
-        const fullDate = date.toLocaleDateString('sv-SE')
-        d.push({
-            full: fullDate,
-            day: date.toLocaleDateString('th-TH', { weekday: 'short' }),
-            date: date.getDate(),
-            month: date.toLocaleDateString('th-TH', { month: 'short' }),
-            year: date.getFullYear()
-        })
+      const date = new Date()
+      date.setDate(date.getDate() + i)
+      // Use local date string instead of ISO to avoid UTC jump
+      const fullDate = date.toLocaleDateString('sv-SE')
+      d.push({
+        full: fullDate,
+        day: date.toLocaleDateString('th-TH', { weekday: 'short' }),
+        date: date.getDate(),
+        month: date.toLocaleDateString('th-TH', { month: 'short' }),
+        year: date.getFullYear()
+      })
     }
     setDates(d)
   }, [])
@@ -76,7 +73,7 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
     <div className="fade-in" style={{ paddingBottom: '120px' }}>
       {/* Step Indicator */}
       <div className="step-indicator-bar" style={{ background: 'var(--accent-primary)', color: '#fff' }}>
-         ขั้นตอน {step}/2 — {step === 1 ? 'เลือกวันและเวลา' : 'ยืนยันการจอง'}
+        ขั้นตอน {step}/2 — {step === 1 ? 'เลือกวันและเวลา' : 'ยืนยันการจอง'}
       </div>
 
       <div className="container-wide" style={{ marginTop: '32px' }}>
@@ -89,14 +86,14 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                 <h3 style={{ fontSize: '1.4rem' }}>เลือกวันที่</h3>
               </div>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <button 
+                <button
                   onClick={() => scrollScrollbar(-200)}
                   style={{ position: 'absolute', left: '-15px', zIndex: 10, background: '#fff', border: '1px solid #eee', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', cursor: 'pointer' }}
                 >
                   <ChevronLeft size={18} />
                 </button>
-                
-                <div 
+
+                <div
                   ref={scrollRef}
                   style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px', scrollbarWidth: 'none', msOverflowStyle: 'none', width: '100%', scrollBehavior: 'smooth' }}
                   className="hide-scrollbar"
@@ -127,7 +124,7 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                   ))}
                 </div>
 
-                <button 
+                <button
                   onClick={() => scrollScrollbar(200)}
                   style={{ position: 'absolute', right: '-15px', zIndex: 10, background: '#fff', border: '1px solid #eee', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', cursor: 'pointer' }}
                 >
@@ -141,12 +138,12 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
               <div className="flex-col gap-lg">
                 <div className="glass-card" style={{ padding: '0', overflow: 'hidden', background: '#005859', color: '#fff' }}>
                   <div style={{ padding: '20px 24px', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <h3 style={{ fontSize: '1.2rem', color: '#fff' }}>Select Court</h3>
-                     <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <MapPin size={16} /> Tennis Court
-                     </div>
+                    <h3 style={{ fontSize: '1.2rem', color: '#fff' }}>Select Court</h3>
+                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <MapPin size={16} /> Tennis Court
+                    </div>
                   </div>
-                  
+
                   <div style={{ padding: '24px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px' }}>
                       {/* Row 1: North */}
@@ -154,15 +151,15 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                         const court = courts.find(c => c.id === id)
                         if (!court) return null
                         return (
-                          <div 
-                            key={court.id} 
+                          <div
+                            key={court.id}
                             style={{ gridColumn: 'span 4' }}
                             onClick={() => setSelectedCourtId(court.id)}
                           >
                             <div className={`court-image-box ${selectedCourtId === court.id ? 'selected' : ''}`}
-                              style={{ 
-                                padding: '16px', 
-                                background: 'rgba(255,255,255,0.05)', 
+                              style={{
+                                padding: '16px',
+                                background: 'rgba(255,255,255,0.05)',
                                 border: `2px solid ${selectedCourtId === court.id ? 'var(--accent-secondary)' : 'rgba(255,255,255,0.1)'}`,
                                 borderRadius: '12px',
                                 textAlign: 'center',
@@ -189,15 +186,15 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                         if (!court) return null
                         const span = id === 5 ? 8 : 4
                         return (
-                          <div 
-                            key={court.id} 
+                          <div
+                            key={court.id}
                             style={{ gridColumn: `span ${span}` }}
                             onClick={() => setSelectedCourtId(court.id)}
                           >
                             <div className={`court-image-box ${selectedCourtId === court.id ? 'selected' : ''}`}
-                              style={{ 
-                                padding: '16px', 
-                                background: 'rgba(255,255,255,0.05)', 
+                              style={{
+                                padding: '16px',
+                                background: 'rgba(255,255,255,0.05)',
                                 border: `2px solid ${selectedCourtId === court.id ? 'var(--accent-secondary)' : 'rgba(255,255,255,0.1)'}`,
                                 borderRadius: '12px',
                                 textAlign: 'center',
@@ -206,7 +203,15 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                                 position: 'relative'
                               }}
                             >
-                              <img src={courtH} style={{ width: span === 8 ? '45%' : '80%', marginBottom: '8px', filter: 'brightness(1.2)' }} alt="" />
+                               <img
+                                 src={courtH}
+                                 style={{
+                                   width: '80px',
+                                   marginBottom: '8px',
+                                   filter: 'brightness(1.2)'
+                                 }}
+                                 alt=""
+                               />
                               <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{court.name}</div>
                               {selectedCourtId === court.id && (
                                 <div style={{ position: 'absolute', top: '8px', right: '8px', color: 'var(--accent-secondary)' }}>
@@ -223,15 +228,15 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                         const court = courts.find(c => c.id === id)
                         if (!court) return null
                         return (
-                          <div 
-                            key={court.id} 
+                          <div
+                            key={court.id}
                             style={{ gridColumn: 'span 4' }}
                             onClick={() => setSelectedCourtId(court.id)}
                           >
                             <div className={`court-image-box ${selectedCourtId === court.id ? 'selected' : ''}`}
-                              style={{ 
-                                padding: '16px', 
-                                background: 'rgba(255,255,255,0.05)', 
+                              style={{
+                                padding: '16px',
+                                background: 'rgba(255,255,255,0.05)',
                                 border: `2px solid ${selectedCourtId === court.id ? 'var(--accent-secondary)' : 'rgba(255,255,255,0.1)'}`,
                                 borderRadius: '12px',
                                 textAlign: 'center',
@@ -252,7 +257,7 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                         )
                       })}
                     </div>
-                    
+
                     <div style={{ textAlign: 'center', marginTop: '32px' }}>
                       <h2 style={{ fontSize: '2rem', fontWeight: '800', opacity: 0.9, letterSpacing: '2px', textTransform: 'uppercase' }}>Tennis Court</h2>
                     </div>
@@ -267,12 +272,12 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                     <Clock size={22} color="var(--accent-primary)" />
                     <h3 style={{ fontSize: '1.4rem' }}>เลือกเวลา</h3>
                   </div>
-                  
+
                   <div className="time-slot-grid" style={{ marginBottom: '32px' }}>
                     {TIME_SLOTS.map((time, idx) => {
                       const slot = selectedCourt?.allotment[idx]
                       const isUnavailable = slot && (!slot.isOpen || slot.bookedBy)
-                      
+
                       // Check if time is in the past (for today)
                       const isPast = (() => {
                         const today = new Date().toLocaleDateString('sv-SE')
@@ -284,13 +289,13 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
 
                       const isDisabled = isUnavailable || isPast
                       const isActive = selectedTime === time
-                      
+
                       return (
-                        <button 
-                          key={time} 
+                        <button
+                          key={time}
                           disabled={isDisabled}
                           onClick={() => setSelectedTime(time)}
-                          style={{ 
+                          style={{
                             padding: '16px 8px',
                             fontSize: '1.1rem',
                             fontWeight: '700',
@@ -309,8 +314,8 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                     })}
                   </div>
 
-                  <button 
-                    className="premium-button" 
+                  <button
+                    className="premium-button"
                     disabled={!selectedCourt || !selectedTime}
                     onClick={handleNextStep}
                     style={{ width: '100%', marginTop: 'auto' }}
@@ -325,36 +330,36 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
 
         {step === 2 && (
           <div className="flex-col gap-lg fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
-             <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-                <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '700', fontSize: '1.2rem' }}>
-                   สรุปรายการจอง
+            <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
+              <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '700', fontSize: '1.2rem' }}>
+                สรุปรายการจอง
+              </div>
+              <div style={{ padding: '32px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
+                    <span style={{ color: '#666' }}>สนาม</span>
+                    <strong style={{ fontSize: '1.1rem' }}>{selectedCourt?.name} ({selectedCourt?.type})</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
+                    <span style={{ color: '#666' }}>วันที่</span>
+                    <strong style={{ fontSize: '1.1rem' }}>{selectedDate}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
+                    <span style={{ color: '#666' }}>เวลา</span>
+                    <strong style={{ fontSize: '1.1rem' }}>{selectedTime}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px' }}>
+                    <span style={{ color: '#666' }}>ราคาสุทธิ</span>
+                    <strong style={{ fontSize: '1.5rem', color: 'var(--accent-primary)' }}>฿{Math.floor(Number(selectedCourt?.price_per_hour || selectedCourt?.rate || 0)).toLocaleString('th-TH')}</strong>
+                  </div>
                 </div>
-                <div style={{ padding: '32px' }}>
-                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
-                        <span style={{ color: '#666' }}>สนาม</span>
-                        <strong style={{ fontSize: '1.1rem' }}>{selectedCourt?.name} ({selectedCourt?.type})</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
-                        <span style={{ color: '#666' }}>วันที่</span>
-                        <strong style={{ fontSize: '1.1rem' }}>{selectedDate}</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
-                        <span style={{ color: '#666' }}>เวลา</span>
-                        <strong style={{ fontSize: '1.1rem' }}>{selectedTime}</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px' }}>
-                        <span style={{ color: '#666' }}>ราคาสุทธิ</span>
-                        <strong style={{ fontSize: '1.5rem', color: 'var(--accent-primary)' }}>฿{Math.floor(Number(selectedCourt?.price_per_hour || selectedCourt?.rate || 0)).toLocaleString('th-TH')}</strong>
-                      </div>
-                   </div>
-                </div>
-             </div>
-             
-             <div style={{ display: 'flex', gap: '16px' }}>
-                <button className="secondary-button" style={{ flex: 1, padding: '18px' }} onClick={() => setStep(1)}>แก้ไขการจอง</button>
-                <button className="premium-button" style={{ flex: 2 }} onClick={handleNextStep}>ยืนยันและชำระเงิน</button>
-             </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <button className="secondary-button" style={{ flex: 1, padding: '18px' }} onClick={() => setStep(1)}>แก้ไขการจอง</button>
+              <button className="premium-button" style={{ flex: 2 }} onClick={handleNextStep}>ยืนยันและชำระเงิน</button>
+            </div>
           </div>
         )}
       </div>
