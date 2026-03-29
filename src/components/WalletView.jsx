@@ -210,10 +210,7 @@ const WalletView = ({ onBack }) => {
         <div style={{ padding: '40px', textAlign: 'center', background: '#fff' }}>
           {method === 'qr' ? (
             <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', display: 'inline-block', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', marginBottom: '24px', border: '1px solid #eee' }}>
-              <div style={{ background: '#00467f', color: '#fff', padding: '8px', borderRadius: '4px 4px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
-                <img src="https://upload.wikimedia.org/wikipedia/commons/c/c5/PromptPay_logo.svg" alt="PromptPay" style={{ height: '18px', filter: 'brightness(0) invert(1)' }} />
-                <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>THAI QR PAYMENT</span>
-              </div>
+              {/* Removed redundant PromptPay header as requested */}
               {qrUri ? (
                 <img src={qrUri} alt="QR" style={{ width: '250px', height: '250px', display: 'block' }} />
               ) : (

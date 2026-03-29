@@ -21,8 +21,8 @@ $user_id = $data['user_id'] ?? null;
 $amount  = $data['amount']  ?? 0; // in THB (converted to satangs later)
 $type    = $data['type']    ?? 'promptpay'; // promptpay | credit
 
-if (!$user_id || $amount <= 0) {
-    echo json_encode(['error' => 'Invalid parameters']);
+if (!$user_id || $amount <= 0 || $amount > 50000) {
+    echo json_encode(['error' => 'Invalid amount or user parameters']);
     exit;
 }
 
@@ -32,6 +32,14 @@ try {
     $conn = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $conn->exec("set names utf8mb4");
+
+    // Verify user exists
+    $stmtUser = $conn->prepare("SELECT id FROM users WHERE id = ?");
+    $stmtUser->execute([$user_id]);
+    if (!$stmtUser->fetch()) {
+        echo json_encode(['error' => 'User not found']);
+        exit;
+    }
 
     // 1. Create a pending transaction record
     $stmt = $conn->prepare("INSERT INTO wallet_transactions (user_id, amount, status, payment_type) VALUES (?, ?, 'Pending', ?)");

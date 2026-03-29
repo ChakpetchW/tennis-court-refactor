@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { 
-  ChevronLeft, Calendar, DollarSign, List, ShieldCheck, ClipboardList, Users, Clock
+  ChevronLeft, Calendar, DollarSign, List, ShieldCheck, ClipboardList, Users, Clock, RefreshCw
 } from 'lucide-react'
 import { api } from '../services/api'
 
@@ -30,6 +30,8 @@ const Admin = ({ onBack, onLogout }) => {
   const [rates, setRates] = useState([])
   const [auditLogs, setAuditLogs] = useState([])
   const [walletTransactions, setWalletTransactions] = useState([])
+  const [apiVersion, setApiVersion] = useState('Checking...')
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // 1. Data Refresh logic
   const fetchRates = async () => {
@@ -39,22 +41,45 @@ const Admin = ({ onBack, onLogout }) => {
     } catch (err) { console.error('Fetch rates error:', err) }
   }
 
-  const fetchAuditLogs = async () => {
+  const fetchVersion = async () => {
     try {
-      console.log('Fetching audit logs...');
-      const data = await api.getAuditLogs();
-      console.log('Audit logs received:', data);
+      const data = await api.getVersion()
+      if (data.version) setApiVersion(data.version)
+    } catch (err) { setApiVersion('Unknown') }
+  }
+
+  const fetchAuditLogs = async (date) => {
+    try {
+      const data = await api.getAuditLogs(date);
       if (Array.isArray(data)) setAuditLogs(data);
     } catch (err) { console.error('Fetch logs error:', err); }
   }
 
-  const fetchWalletTransactions = async () => {
+  const fetchWalletTransactions = async (date) => {
     try {
-      console.log('Fetching wallet tx...');
-      const data = await api.getWalletTransactions();
-      console.log('Wallet tx received:', data);
+      const data = await api.getWalletTransactions(date);
       if (Array.isArray(data)) setWalletTransactions(data);
     } catch (err) { console.error('Fetch wallet tx error:', err); }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      // Refresh EVERYTHING for the selected date
+      await Promise.all([
+        fetchStatus ? fetchStatus(selectedDate) : Promise.resolve(),
+        fetchAdminBookings ? fetchAdminBookings(selectedDate) : Promise.resolve(),
+        fetchRates(),
+        fetchAuditLogs(selectedDate),
+        fetchWalletTransactions(selectedDate),
+        fetchVersion()
+      ])
+    } catch (err) {
+      console.error('Refresh error:', err)
+    } finally {
+      // Keep spinning for at least 500ms for visual feedback
+      setTimeout(() => setIsRefreshing(false), 500)
+    }
   }
 
   useEffect(() => {
@@ -62,9 +87,10 @@ const Admin = ({ onBack, onLogout }) => {
     if (fetchAdminBookings) fetchAdminBookings(selectedDate)
     if (activeTab === 'pricing') fetchRates()
     if (activeTab === 'transactions') {
-      fetchAuditLogs()
-      fetchWalletTransactions()
+      fetchAuditLogs(selectedDate)
+      fetchWalletTransactions(selectedDate)
     }
+    fetchVersion()
   }, [selectedDate, activeTab])
 
   // 2. Tab Configuration
@@ -74,7 +100,6 @@ const Admin = ({ onBack, onLogout }) => {
     { id: 'users', label: 'Members', icon: <Users size={18} /> },
     { id: 'pricing', label: 'Rates', icon: <DollarSign size={18} /> },
     { id: 'transactions', label: 'Audit Log', icon: <List size={18} /> },
-    { id: 'apiSettings', label: 'System', icon: <ShieldCheck size={18} /> },
   ]
 
   return (
@@ -83,36 +108,31 @@ const Admin = ({ onBack, onLogout }) => {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 32px', borderBottom: '1px solid #eee', background: 'var(--accent-primary)', color: '#fff' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer' }}><ChevronLeft size={24} /></button>
             <h2 style={{ fontSize: '1.6rem', fontFamily: 'var(--font-heading)', margin: 0, letterSpacing: '-0.02em' }}>MANAGEMENT CONSOLE</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.2)' }}>
+            <div 
+              onClick={() => document.getElementById('admin-date-input').showPicker()}
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }}
+            >
               <Calendar size={20} color="#fff" />
               <input
+                id="admin-date-input"
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
                 style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '1rem', fontWeight: '700', color: '#fff', cursor: 'pointer' }}
               />
             </div>
             <button 
-              onClick={() => {
-                fetchStatus(selectedDate);
-                fetchAdminBookings(selectedDate);
-                if (activeTab === 'transactions') { fetchAuditLogs(); fetchWalletTransactions(); }
-              }}
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '10px 16px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', fontSize: '0.9rem', fontWeight: '600' }}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '10px 16px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', fontSize: '0.9rem', fontWeight: '600', opacity: isRefreshing ? 0.7 : 1 }}
               onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
               onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
             >
-              <Clock size={16} /> Refresh
-            </button>
-            <button 
-              onClick={onLogout}
-              style={{ background: 'none', border: '2px solid rgba(255,255,255,0.3)', color: '#fff', padding: '10px 24px', borderRadius: '30px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
-            >
-              Sign Out
+              <RefreshCw size={16} className={isRefreshing ? 'spin-animation' : ''} /> {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -149,10 +169,9 @@ const Admin = ({ onBack, onLogout }) => {
               <AdminAuditLog auditLogs={auditLogs} />
             </div>
           )}
-          {activeTab === 'apiSettings' && <AdminSettings />}
         {/* Footer Version Info */}
         <div style={{ padding: '16px 32px', textAlign: 'right', fontSize: '0.75rem', color: '#ccc' }}>
-          Build: CAbgyMVa | API: api/main_api.php (v2.9.3)
+          Build: {Date.now().toString(36).toUpperCase()} | API: {apiVersion}
         </div>
       </div>
     </div>

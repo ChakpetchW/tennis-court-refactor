@@ -72,16 +72,37 @@ if ($key === 'charge.complete' && ($data['status'] ?? '') === 'successful') {
         $amount  = $data['amount'] / 100; // in THB
         $txId    = $meta['transaction_id'] ?? null;
 
-        if ($userId) {
-            // Update Transaction
-            $conn->prepare("UPDATE wallet_transactions SET status='Paid' WHERE id=?")
-                 ->execute([$txId]);
-            
-            // Update User Balance
-            $conn->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id=?")
-                 ->execute([$amount, $userId]);
-            
-            error_log('[Webhook] Top-up Successful: User #' . $userId . ' Amount: ' . $amount);
+        if ($userId && $txId) {
+            try {
+                $conn->beginTransaction();
+
+                // Check if transaction is already processed (Idempotency)
+                $stmtTx = $conn->prepare("SELECT status FROM wallet_transactions WHERE id = ? FOR UPDATE");
+                $stmtTx->execute([$txId]);
+                $currentTx = $stmtTx->fetch(PDO::FETCH_ASSOC);
+
+                if ($currentTx && $currentTx['status'] !== 'Paid') {
+                    // 1. Mark Transaction as Paid
+                    $conn->prepare("UPDATE wallet_transactions SET status='Paid' WHERE id=?")
+                         ->execute([$txId]);
+                    
+                    // 2. Add Balance to User
+                    $conn->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id=?")
+                         ->execute([$amount, $userId]);
+
+                    $conn->commit();
+                    error_log('[Webhook] Top-up Successful: User #' . $userId . ' Amount: ' . $amount);
+                } else {
+                    $conn->rollBack();
+                    error_log('[Webhook] Top-up skipped (already processed or not found): TX #' . $txId);
+                }
+            } catch (Exception $e) {
+                if ($conn->inTransaction()) $conn->rollBack();
+                error_log('[Webhook] Top-up Failed (DB Error): ' . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Database update failed']);
+                exit;
+            }
         }
         
         http_response_code(200);

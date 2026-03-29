@@ -5,6 +5,12 @@ header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=UTF-8");
 
+// Sustainable Cache Management - No caching for the API endpoint
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Past date to force immediate expiration
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200); exit;
 }
@@ -47,26 +53,50 @@ switch($requestedAction) {
         break;
 
     case 'version':
-        echo json_encode(["version" => "2.6 (Subdirectory Fix)", "db" => $db_name]);
+        echo json_encode(["version" => "2.9.5 (Exact Date Fix)", "db" => $db_name]);
         break;
 
     case 'get_audit_logs':
-        // Diagnostic: Log that admin requested logs
-        $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
-        $logStmt->execute(['SYSTEM_REPORT', 'Administrator viewed audit logs', 'System']);
-        
-        $stmt = $conn->query("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100");
+        $date = isset($_GET['date']) && !empty($_GET['date']) ? $_GET['date'] : null;
+        // Debug logging for developers: Check your PHP error log
+        if ($date) error_log("Admin requested Audit Logs for date: " . $date);
+
+        if ($date) {
+            // Use local system date for matching as server/browser are already aligned
+            $stmt = $conn->prepare("SELECT * FROM audit_logs WHERE DATE(created_at) = ? ORDER BY created_at DESC LIMIT 500");
+            $stmt->execute([$date]);
+        } else {
+            // Diagnostic: Only log system report if no date is specified (general view)
+            $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+            $logStmt->execute(['SYSTEM_REPORT', 'Administrator viewed audit logs', 'System']);
+            $stmt = $conn->query("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100");
+        }
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
         break;
 
     case 'get_wallet_transactions':
-        $stmt = $conn->query("
-            SELECT wt.*, u.name as user_name, u.phone as user_phone 
-            FROM wallet_transactions wt 
-            LEFT JOIN users u ON wt.user_id = u.id 
-            ORDER BY wt.created_at DESC 
-            LIMIT 200
-        ");
+        $date = isset($_GET['date']) && !empty($_GET['date']) ? $_GET['date'] : null;
+        if ($date) error_log("Admin requested Wallet TX for date: " . $date);
+
+        if ($date) {
+            // Use local system date for matching as server/browser are already aligned
+            $stmt = $conn->prepare("
+                SELECT wt.*, u.name as user_name, u.phone as user_phone 
+                FROM wallet_transactions wt 
+                LEFT JOIN users u ON wt.user_id = u.id 
+                WHERE DATE(wt.created_at) = ?
+                ORDER BY wt.created_at DESC 
+            ");
+            $stmt->execute([$date]);
+        } else {
+            $stmt = $conn->query("
+                SELECT wt.*, u.name as user_name, u.phone as user_phone 
+                FROM wallet_transactions wt 
+                LEFT JOIN users u ON wt.user_id = u.id 
+                ORDER BY wt.created_at DESC 
+                LIMIT 200
+            ");
+        }
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($results);
         break;

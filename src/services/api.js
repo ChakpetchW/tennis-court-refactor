@@ -181,12 +181,17 @@ export const api = {
     return handleResponse(res);
   },
 
-  getAuditLogs: async () => {
-    const res = await fetch(`${BASE_URL}?action=get_audit_logs`);
+  getAuditLogs: async (date) => {
+    // Add cache buster and ensure date is clean
+    const t = Date.now();
+    const url = date ? `${BASE_URL}?action=get_audit_logs&date=${date}&t=${t}` : `${BASE_URL}?action=get_audit_logs&t=${t}`;
+    const res = await fetch(url);
     return handleResponse(res);
   },
-  getWalletTransactions: async () => {
-    const res = await fetch(`${BASE_URL}?action=get_wallet_transactions`);
+  getWalletTransactions: async (date) => {
+    const t = Date.now();
+    const url = date ? `${BASE_URL}?action=get_wallet_transactions&date=${date}&t=${t}` : `${BASE_URL}?action=get_wallet_transactions&t=${t}`;
+    const res = await fetch(url);
     return handleResponse(res);
   },
 
@@ -216,6 +221,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(paymentData)
     });
+    return handleResponse(res);
+  },
+  getVersion: async () => {
+    const res = await fetch(`${BASE_URL}?action=version&t=${Date.now()}`);
     return handleResponse(res);
   }
 };

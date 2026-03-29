@@ -1,0 +1,18 @@
+# Sustainable Cache Management for Single Page Applications
+# This ensures that your HTML and PHP entry points are never cached by the server or browser.
+
+<IfModule mod_headers.c>
+    # 1. DO NOT CACHE HTML AND PHP (The Entry Points)
+    <FilesMatch "\.(html|htm|php)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+
+    # 2. CACHE ASSETS (Images, Icons, etc.)
+    # Note: Vite manages CSS/JS hashing, but for public images we can set a short cache if needed.
+    # However, to be safe for now, we minimize caching for common formats.
+    <FilesMatch "\.(jpg|jpeg|png|gif|svg|ico|webp)$">
+        Header set Cache-Control "max-age=604800, public"
+    </FilesMatch>
+</IfModule>
