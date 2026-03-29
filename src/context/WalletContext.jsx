@@ -1,76 +1,82 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { useCallback, useState } from 'react'
 import { api } from '../services/api'
-import { useAuth } from './AuthContext'
-
-const WalletContext = createContext()
+import { WalletContext } from './wallet-context'
+import { useAuth } from '../hooks/useAuth'
 
 export const WalletProvider = ({ children }) => {
   const { user, setUser } = useAuth()
   const [walletBalance, setWalletBalance] = useState(() => {
-    try { return Number(localStorage.getItem('court_wallet') || 0) } catch { return 0 }
+    try {
+      return Number(localStorage.getItem('court_wallet') || 0)
+    } catch {
+      return 0
+    }
   })
 
-  const fetchUserBalance = async () => {
+  const syncBalance = useCallback((nextBalance, profileData = null) => {
+    const normalizedBalance = Number(nextBalance || 0)
+    setWalletBalance(normalizedBalance)
+    localStorage.setItem('court_wallet', normalizedBalance)
+
+    if (setUser) {
+      setUser((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          ...(profileData || {}),
+          wallet_balance: normalizedBalance,
+        }
+      })
+    }
+
+    return normalizedBalance
+  }, [setUser])
+
+  const fetchUserBalance = useCallback(async () => {
     if (!user?.id) return 0
+
     try {
       const data = await api.getProfile(user.id)
       if (data && data.wallet_balance !== undefined) {
-        const val = Number(data.wallet_balance)
-        setWalletBalance(val)
-        localStorage.setItem('court_wallet', val)
-        if (setUser) {
-          setUser(prev => {
-            if (!prev) return null
-            const next = { ...prev, ...data, wallet_balance: val }
-            localStorage.setItem('court_user', JSON.stringify(next))
-            return next
-          })
-        }
-        return val
+        return syncBalance(data.wallet_balance, data)
       }
-    } catch (e) { 
-      console.error('Fetch balance error:', e)
+    } catch (error) {
+      console.error('Fetch balance error:', error)
     }
-    return 0
-  }
 
-  const updateWallet = async (amount) => {
+    return 0
+  }, [syncBalance, user])
+
+  const updateWallet = useCallback(async (amount) => {
+    if (typeof amount !== 'number') {
+      throw new Error('updateWallet expects a numeric amount')
+    }
+
     try {
       const data = await api.topupWallet(user?.id, user?.phone, amount)
       if (data.wallet_balance !== undefined) {
-        const newBalance = Number(data.wallet_balance)
-        setWalletBalance(newBalance)
-        localStorage.setItem('court_wallet', newBalance)
-        return newBalance
+        return syncBalance(data.wallet_balance)
       }
-    } catch {
-      console.warn('Wallet API unavailable, using localStorage fallback.')
-      const fallback = walletBalance + amount
-      setWalletBalance(fallback)
-      localStorage.setItem('court_wallet', fallback)
-      return fallback
+    } catch (error) {
+      console.warn('Wallet API unavailable, using localStorage fallback.', error)
+      return syncBalance(walletBalance + amount)
     }
-  }
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchUserBalance()
-    }
-  }, [user?.id])
-
-  const value = {
-    walletBalance, setWalletBalance, fetchUserBalance, updateWallet
-  }
+    return walletBalance
+  }, [syncBalance, user, walletBalance])
 
   return (
-    <WalletContext.Provider value={value}>
+    <WalletContext.Provider
+      value={{
+        walletBalance,
+        setWalletBalance,
+        fetchUserBalance,
+        updateWallet,
+      }}
+    >
       {children}
     </WalletContext.Provider>
   )
 }
 
-export const useWallet = () => {
-  const context = useContext(WalletContext)
-  if (!context) throw new Error('useWallet must be used within a WalletProvider')
-  return context
-}
+export default WalletProvider

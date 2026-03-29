@@ -15,20 +15,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200); exit;
 }
 
-// Load shared config if available (production), else use inline fallback
-if (file_exists(__DIR__ . '/config.php')) {
-    require_once __DIR__ . '/config.php';
-    $host     = DB_HOST; 
-    $db_name  = DB_NAME;
-    $username = DB_USER;
-    $password = DB_PASS;
-} else {
-    $host = 'localhost'; $db_name = 'scaleupc_court';
-    $username = 'scaleupc_court'; $password = 'ZmcpPgKGccdxtefU5MtD';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/mailer.php';
+
+if (DB_NAME === '' || DB_USER === '') {
+    json_response(["error" => "Server configuration is incomplete"], 500);
 }
 
+start_app_session();
+
 try {
-    $conn = new PDO("mysql:host=$host;dbname=$db_name", $username, $password);
+    $conn = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $conn->exec("set names utf8mb4");
 
@@ -41,9 +38,70 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 } catch(PDOException $exception) {
-    echo json_encode(["error" => "Connection failed: " . $exception->getMessage()]);
-    exit;
+    json_response(["error" => "Connection failed: " . $exception->getMessage()], 500);
 }
+
+$normalizePhoneForOtp = function ($phone) {
+    $digits = preg_replace('/\D+/', '', (string) $phone);
+
+    if (str_starts_with($digits, '0') && strlen($digits) === 10) {
+        return '66' . substr($digits, 1);
+    }
+
+    if (str_starts_with($digits, '66')) {
+        return $digits;
+    }
+
+    return $digits;
+};
+
+$extractOtpToken = function ($payload) {
+    if (!is_array($payload)) {
+        return null;
+    }
+
+    return $payload['token']
+        ?? $payload['data']['token']
+        ?? $payload['otp']['token']
+        ?? null;
+};
+
+$callThaibulkSmsOtp = function ($endpoint, array $fields) {
+    $ch = curl_init($endpoint);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query($fields),
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/json',
+            'Content-Type: application/x-www-form-urlencoded',
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+
+    $body = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    return [$body, $httpCode, $curlError];
+};
+
+$sendBookingNotifications = function (array $booking) {
+    $notificationData = [
+        'court_name' => $booking['court_name'] ?? '-',
+        'date' => $booking['date'] ?? ($booking['booking_date'] ?? '-'),
+        'time' => $booking['time'] ?? ($booking['booking_time'] ?? '-'),
+        'customer_name' => $booking['customer_name'] ?? ($booking['user_name'] ?? '-'),
+        'booking_id' => $booking['booking_id'] ?? ($booking['id'] ?? '-'),
+        'payment_provider' => $booking['payment_provider'] ?? '-',
+        'price' => $booking['price'] ?? 0,
+    ];
+
+    if (!empty($booking['email'])) {
+        send_booking_confirmation_email($booking['email'], $notificationData);
+    }
+};
 
 $requestedAction = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
 
@@ -53,10 +111,67 @@ switch($requestedAction) {
         break;
 
     case 'version':
-        echo json_encode(["version" => "2.9.5 (Exact Date Fix)", "db" => $db_name]);
+        echo json_encode(["version" => "2.9.5 (Exact Date Fix)", "db" => DB_NAME]);
+        break;
+
+    case 'admin_session':
+        $admin = get_admin_session_user();
+        echo json_encode([
+            "success" => (bool) $admin,
+            "user" => $admin
+        ]);
+        break;
+
+    case 'admin_logout':
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+        }
+        session_destroy();
+        echo json_encode(["success" => true]);
+        break;
+
+    case 'clear_opcache':
+        $admin = require_admin_session();
+
+        if (!function_exists('opcache_reset')) {
+            json_response([
+                "success" => false,
+                "error" => "OPcache is not available on this server"
+            ], 501);
+        }
+
+        if (!opcache_reset()) {
+            json_response([
+                "success" => false,
+                "error" => "OPcache reset failed"
+            ], 500);
+        }
+
+        $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+        $logStmt->execute([
+            'OPCACHE_RESET',
+            'Administrator cleared PHP OPcache',
+            $admin['name'] ?? 'Admin'
+        ]);
+
+        echo json_encode([
+            "success" => true,
+            "message" => "PHP OPcache cleared successfully"
+        ]);
+        break;
+
+    case 'get_mail_logs':
+        require_admin_session();
+        echo json_encode([
+            "success" => true,
+            "entries" => get_mail_log_entries(80),
+        ]);
         break;
 
     case 'get_audit_logs':
+        $admin = require_admin_session();
         $date = isset($_GET['date']) && !empty($_GET['date']) ? $_GET['date'] : null;
         // Debug logging for developers: Check your PHP error log
         if ($date) error_log("Admin requested Audit Logs for date: " . $date);
@@ -68,13 +183,14 @@ switch($requestedAction) {
         } else {
             // Diagnostic: Only log system report if no date is specified (general view)
             $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
-            $logStmt->execute(['SYSTEM_REPORT', 'Administrator viewed audit logs', 'System']);
+            $logStmt->execute(['SYSTEM_REPORT', 'Administrator viewed audit logs', $admin['name']]);
             $stmt = $conn->query("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100");
         }
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
         break;
 
     case 'get_wallet_transactions':
+        require_admin_session();
         $date = isset($_GET['date']) && !empty($_GET['date']) ? $_GET['date'] : null;
         if ($date) error_log("Admin requested Wallet TX for date: " . $date);
 
@@ -102,11 +218,177 @@ switch($requestedAction) {
         break;
 
     case 'login':
-        $data = json_decode(file_get_contents("php://input"));
+        $data = get_json_input();
         $stmt = $conn->prepare("SELECT id, phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance FROM users WHERE phone = ?");
         $stmt->execute([$data->phone]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         echo json_encode($user ?: ["isRegistered" => false]);
+        break;
+
+    case 'request_otp':
+        $data = get_json_input();
+        $phone = trim($data->phone ?? '');
+        $normalizedPhone = $normalizePhoneForOtp($phone);
+
+        if ($normalizedPhone === '') {
+            json_response(["success" => false, "error" => "Missing phone number"], 422);
+        }
+
+        if (OTP_API_KEY !== '' && OTP_API_SECRET !== '') {
+            [$responseBody, $httpCode, $curlError] = $callThaibulkSmsOtp(
+                'https://otp.thaibulksms.com/v2/otp/request',
+                [
+                    'key' => OTP_API_KEY,
+                    'secret' => OTP_API_SECRET,
+                    'msisdn' => $normalizedPhone,
+                ]
+            );
+
+            if ($curlError) {
+                json_response(["success" => false, "error" => "OTP provider request failed"], 502);
+            }
+
+            $decoded = json_decode($responseBody, true);
+            $token = $extractOtpToken($decoded);
+
+            if ($httpCode < 200 || $httpCode >= 300 || !$token) {
+                json_response([
+                    "success" => false,
+                    "error" => $decoded['message'] ?? 'OTP provider rejected the request',
+                    "provider_status" => $httpCode,
+                ], 502);
+            }
+
+            $_SESSION['otp_phone'] = $phone;
+            $_SESSION['otp_phone_normalized'] = $normalizedPhone;
+            $_SESSION['otp_token'] = $token;
+            $_SESSION['otp_requested_at'] = time();
+
+            echo json_encode([
+                "success" => true,
+                "simulated" => false,
+                "provider" => "thaibulksms",
+                "provider_status" => $httpCode,
+            ]);
+            break;
+        }
+
+        if (OTP_WEBHOOK_URL === '') {
+            echo json_encode(["success" => true, "simulated" => true]);
+            break;
+        }
+
+        $method = strtoupper(OTP_METHOD ?: 'POST');
+        $url = OTP_WEBHOOK_URL;
+        $headers = ['Content-Type: application/json'];
+
+        if (OTP_API_KEY !== '') {
+            $headers[] = 'X-API-Key: ' . OTP_API_KEY;
+        }
+        if (OTP_API_SECRET !== '') {
+            $headers[] = 'X-API-Secret: ' . OTP_API_SECRET;
+        }
+
+        $ch = curl_init();
+        if ($method === 'GET') {
+            $separator = str_contains($url, '?') ? '&' : '?';
+            curl_setopt($ch, CURLOPT_URL, $url . $separator . 'phone=' . urlencode($phone));
+        } else {
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['phone' => $phone]));
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+        ]);
+
+        $responseBody = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlError) {
+            json_response(["success" => false, "error" => "OTP provider request failed"], 502);
+        }
+
+        $decoded = json_decode($responseBody, true);
+        $providerAccepted = $httpCode >= 200 && $httpCode < 300;
+
+        echo json_encode([
+            "success" => $providerAccepted,
+            "simulated" => false,
+            "provider_status" => $httpCode,
+            "provider_response" => is_array($decoded) ? $decoded : null
+        ]);
+        break;
+
+    case 'verify_otp':
+        $data = get_json_input();
+        $phone = trim($data->phone ?? '');
+        $pin = trim($data->pin ?? '');
+        $normalizedPhone = $normalizePhoneForOtp($phone);
+
+        if ($normalizedPhone === '' || $pin === '') {
+            json_response(["success" => false, "error" => "Missing phone number or OTP PIN"], 422);
+        }
+
+        if (OTP_API_KEY !== '' && OTP_API_SECRET !== '') {
+            $sessionToken = $_SESSION['otp_token'] ?? '';
+            $sessionPhone = $_SESSION['otp_phone_normalized'] ?? '';
+
+            if ($sessionToken === '' || $sessionPhone === '' || $sessionPhone !== $normalizedPhone) {
+                json_response(["success" => false, "error" => "OTP session expired or mismatched phone number"], 409);
+            }
+
+            [$responseBody, $httpCode, $curlError] = $callThaibulkSmsOtp(
+                'https://otp.thaibulksms.com/v2/otp/verify',
+                [
+                    'key' => OTP_API_KEY,
+                    'secret' => OTP_API_SECRET,
+                    'token' => $sessionToken,
+                    'pin' => $pin,
+                ]
+            );
+
+            if ($curlError) {
+                json_response(["success" => false, "error" => "OTP verification request failed"], 502);
+            }
+
+            $decoded = json_decode($responseBody, true);
+            $providerState = strtolower((string) ($decoded['status'] ?? $decoded['state'] ?? $decoded['result'] ?? ''));
+            $isVerified = ($httpCode >= 200 && $httpCode < 300) &&
+                !in_array($providerState, ['invalid', 'failed', 'expired', 'error'], true);
+
+            if (!$isVerified) {
+                json_response([
+                    "success" => false,
+                    "error" => $decoded['message'] ?? 'OTP verification failed',
+                    "provider_status" => $httpCode,
+                ], 401);
+            }
+
+            unset(
+                $_SESSION['otp_phone'],
+                $_SESSION['otp_phone_normalized'],
+                $_SESSION['otp_token'],
+                $_SESSION['otp_requested_at']
+            );
+
+            echo json_encode([
+                "success" => true,
+                "provider" => "thaibulksms",
+                "provider_status" => $httpCode,
+            ]);
+            break;
+        }
+
+        echo json_encode([
+            "success" => true,
+            "simulated" => true,
+        ]);
         break;
 
     case 'get_profile':
@@ -262,7 +544,8 @@ switch($requestedAction) {
         break;
 
     case 'toggle_allotment':
-        $data = json_decode(file_get_contents("php://input"));
+        $admin = require_admin_session();
+        $data = get_json_input();
         $stmt = $conn->prepare("SELECT id FROM allotments WHERE court_id = ? AND date = ? AND hour = ?");
         $stmt->execute([$data->court_id, $data->date, $data->hour]);
         $existing = $stmt->fetch();
@@ -271,6 +554,9 @@ switch($requestedAction) {
         } else {
             $conn->prepare("INSERT INTO allotments (court_id, date, hour, is_open) VALUES (?, ?, ?, 0)")->execute([$data->court_id, $data->date, $data->hour]);
         }
+        $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+        $details = "Toggled allotment court #{$data->court_id} on {$data->date} {$data->hour}";
+        $logStmt->execute(['TOGGLE_ALLOTMENT', $details, $admin['name']]);
         echo json_encode(["success" => true]);
         break;
 
@@ -331,6 +617,7 @@ switch($requestedAction) {
         break;
 
     case 'get_admin_bookings':
+        require_admin_session();
         $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
         // Fetch real bookings joined with user and court info (use LEFT JOIN for robustness)
         $stmt = $conn->prepare("
@@ -384,14 +671,9 @@ switch($requestedAction) {
         break;
 
     case 'admin_delete_booking':
-        $data = json_decode(file_get_contents("php://input"));
+        $admin = require_admin_session();
+        $data = get_json_input();
         $id = $data->booking_id ?? null;
-        $passwordAttempt = $data->password ?? '';
-        
-        // Verify against hardcoded or config password
-        if ($passwordAttempt !== '1234') { // Default fallback, should be from config
-            echo json_encode(["error" => "Invalid admin password"]); break;
-        }
 
         // 1. Get details for log
         $stmt = $conn->prepare("SELECT b.*, u.name as user_name FROM bookings b JOIN users u ON b.user_id = u.id WHERE b.id = ?");
@@ -409,7 +691,7 @@ switch($requestedAction) {
             // 4. LOG ACTION
             $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
             $details = "Deleted booking #$id for {$b['user_name']} on {$b['booking_date']} {$b['booking_time']}";
-            $logStmt->execute(['DELETE_BOOKING', $details, $data->admin_name ?? 'Admin']);
+            $logStmt->execute(['DELETE_BOOKING', $details, $admin['name']]);
 
             echo json_encode(["success" => true]);
         } else {
@@ -424,7 +706,8 @@ switch($requestedAction) {
         break;
 
     case 'update_rate':
-        $data = json_decode(file_get_contents("php://input"));
+        $admin = require_admin_session();
+        $data = get_json_input();
         $id = (int)$data->id;
         $val = (float)$data->rate;
         // Update price_per_hour (Main Source)
@@ -434,6 +717,9 @@ switch($requestedAction) {
         try {
             @$conn->exec("UPDATE courts SET rate = $val WHERE id = $id");
         } catch (Exception $e) {}
+        $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+        $details = "Updated court rate for court #$id to $val";
+        $logStmt->execute(['UPDATE_RATE', $details, $admin['name']]);
         echo json_encode(["success" => true]);
         break;
 
@@ -509,6 +795,30 @@ switch($requestedAction) {
             $logStmt->execute(['WALLET_PAYMENT', $details, 'System']);
 
             $conn->commit();
+
+            $stmt = $conn->prepare("
+                SELECT 
+                    b.id AS booking_id,
+                    b.price,
+                    b.booking_date AS date,
+                    b.booking_time AS time,
+                    b.payment_provider,
+                    u.name AS customer_name,
+                    u.phone,
+                    u.email,
+                    c.name AS court_name
+                FROM bookings b
+                LEFT JOIN users u ON b.user_id = u.id
+                LEFT JOIN courts c ON b.court_id = c.id
+                WHERE b.id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$bookingId]);
+            $bookingNotification = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($bookingNotification) {
+                $sendBookingNotifications($bookingNotification);
+            }
+
             echo json_encode(["success" => true, "booking_id" => $bookingId]);
         } catch (Exception $e) {
             $conn->rollBack();
@@ -523,6 +833,34 @@ switch($requestedAction) {
             break;
         }
 
+        $normalizePaymentStatus = function ($status, $paid = null, $captured = null) {
+            $normalized = strtolower(trim((string) $status));
+            if (
+                in_array($normalized, ['paid', 'confirmed', 'success', 'successful', 'captured', 'complete', 'completed'], true) ||
+                $paid === true ||
+                $captured === true
+            ) {
+                return 'Paid';
+            }
+
+            if ($normalized === '') {
+                return 'Pending';
+            }
+
+            return ucfirst($normalized);
+        };
+
+        $getWalletBalanceAfter = function ($userId) use ($conn) {
+            $stmtBalance = $conn->prepare("SELECT wallet_balance FROM users WHERE id = ? LIMIT 1");
+            $stmtBalance->execute([$userId]);
+            $walletBalance = $stmtBalance->fetchColumn();
+            if ($walletBalance === false) {
+                return null;
+            }
+
+            return (float) $walletBalance;
+        };
+
         // 1. Check local DB first
         $stmt = $conn->prepare("SELECT status, user_id, amount FROM wallet_transactions WHERE charge_id = ?");
         $stmt->execute([$chargeId]);
@@ -533,13 +871,17 @@ switch($requestedAction) {
             break;
         }
 
-        if ($tx['status'] === 'Paid') {
-            echo json_encode(["status" => "Paid"]);
+        $storedStatus = $normalizePaymentStatus($tx['status']);
+        if ($storedStatus === 'Paid') {
+            echo json_encode([
+                "status" => "Paid",
+                "wallet_balance_after" => $getWalletBalanceAfter($tx['user_id'])
+            ]);
             break;
         }
 
         // 2. If Pending, ask Omise directly for real-time speed
-        if ($tx['status'] === 'Pending') {
+        if ($storedStatus === 'Pending') {
             $ch = curl_init("https://api.omise.co/charges/" . $chargeId);
             curl_setopt_array($ch, [
                 CURLOPT_USERPWD        => OMISE_SECRET_KEY . ':',
@@ -552,7 +894,13 @@ switch($requestedAction) {
 
             if ($resp) {
                 $omiseCharge = json_decode($resp, true);
-                if (isset($omiseCharge['status']) && $omiseCharge['status'] === 'successful') {
+                $remoteStatus = $normalizePaymentStatus(
+                    $omiseCharge['status'] ?? '',
+                    $omiseCharge['paid'] ?? null,
+                    $omiseCharge['captured'] ?? null
+                );
+
+                if ($remoteStatus === 'Paid') {
                     // Start transaction to avoid double credit if webhook arrives at the same time
                     $conn->beginTransaction();
                     try {
@@ -561,7 +909,7 @@ switch($requestedAction) {
                         $stmt->execute([$chargeId]);
                         $st = $stmt->fetchColumn();
 
-                        if ($st === 'Pending') {
+                        if ($normalizePaymentStatus($st) === 'Pending') {
                             $stmt = $conn->prepare("UPDATE wallet_transactions SET status = 'Paid' WHERE charge_id = ?");
                             $stmt->execute([$chargeId]);
 
@@ -569,7 +917,10 @@ switch($requestedAction) {
                             $stmt->execute([$tx['amount'], $tx['user_id']]);
                         }
                         $conn->commit();
-                        echo json_encode(["status" => "Paid"]);
+                        echo json_encode([
+                            "status" => "Paid",
+                            "wallet_balance_after" => $getWalletBalanceAfter($tx['user_id'])
+                        ]);
                         break;
                     } catch (Exception $e) {
                         $conn->rollBack();
@@ -578,19 +929,25 @@ switch($requestedAction) {
             }
         }
 
-        echo json_encode(["status" => $tx['status']]);
+        echo json_encode(["status" => $storedStatus]);
         break;
 
     case 'admin_login':
-        $data = json_decode(file_get_contents("php://input"));
+        $data = get_json_input();
         $stmt = $conn->prepare("SELECT id, email, password_hash, role, name FROM admins WHERE email = ?");
         $stmt->execute([$data->email]);
         $admin = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($admin && password_verify($data->password, $admin['password_hash'])) {
+            session_regenerate_id(true);
+            $_SESSION['admin_id'] = (int) $admin['id'];
+            $_SESSION['admin_name'] = $admin['name'] ?? 'Admin';
+            $_SESSION['admin_role'] = $admin['role'] ?? 'admin';
+            $_SESSION['admin_email'] = $admin['email'] ?? null;
             unset($admin['password_hash']);
             echo json_encode(["success" => true, "user" => $admin]);
         } else {
+            $_SESSION = [];
             echo json_encode(["success" => false, "error" => "Invalid email or password"]);
         }
         break;

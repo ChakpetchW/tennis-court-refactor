@@ -25,9 +25,23 @@ function ProfileDashboard({ user, walletBalance, onStartBooking }) {
           <div style={{ padding: '32px', position: 'relative' }}>
             <div className="profile-info-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '32px' }}>
               {infoItems.map((item, idx) => (
-                <div key={idx} className="profile-info-item" style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '12px' }}>
+                <div key={idx} className="profile-info-item" style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '12px', minWidth: 0 }}>
                   <span className="profile-info-label" style={{ color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', display: 'block' }}>{item.label}</span>
-                  <span className="profile-info-value" style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1a1a1a' }}>{item.value}</span>
+                  <span
+                    className="profile-info-value"
+                    style={{
+                      fontSize: '1.2rem',
+                      fontWeight: '700',
+                      color: '#1a1a1a',
+                      display: 'block',
+                      minWidth: 0,
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {item.value}
+                  </span>
                 </div>
               ))}
             </div>

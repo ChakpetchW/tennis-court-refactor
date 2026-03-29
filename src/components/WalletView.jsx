@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { QrCode, CreditCard, CheckCircle2 } from 'lucide-react'
 import { api } from '../services/api'
-import { useApp } from '../context/AppContext'
+import { useApp } from '../hooks/useApp'
+
+const OMISE_PUBLIC_KEY = import.meta.env.VITE_OMISE_PUBLIC_KEY || ''
 
 const PAYMENT_METHODS_WALLET = [
   { id: 'qr',     name: 'PromptPay QR',  icon: <QrCode size={26} />,     desc: 'สแกนจ่ายด้วยแอปธนาคาร' },
   { id: 'credit', name: 'Credit/Debit',  icon: <CreditCard size={26} />, desc: 'Visa / Mastercard' },
 ]
+
+const isSuccessfulTopupStatus = (status) => {
+  const normalized = (status || '').toString().trim().toLowerCase()
+  return ['paid', 'confirmed', 'success', 'successful', 'captured', 'complete', 'completed'].includes(normalized)
+}
 
 const WalletView = ({ onBack }) => {
   const { walletBalance, fetchUserBalance: onRefreshBalance } = useApp()
@@ -65,28 +72,87 @@ const WalletView = ({ onBack }) => {
   }, [step, timeLeft])
 
   useEffect(() => {
-    if (step !== 'qr' || !chargeId) return
+    if (step !== 'success') return
 
-    const pollId = setInterval(async () => {
-      try {
-        const data = await api.checkTopupStatus(chargeId)
-        const status = (data.status || '').toString().trim()
-        const isPaid = ['Paid', 'Confirmed', 'Success', 'successful'].some(s => s.toLowerCase() === status.toLowerCase())
-        
-        if (isPaid) {
-          const newBal = await onRefreshBalance()
-          setSuccessBalance(newBal || (balance + finalAmt))
-          setStep('success')
-          clearInterval(pollId)
-        }
-      } catch (e) { console.error('Poll error:', e) }
-    }, 2000)
-
-    return () => clearInterval(pollId)
-  }, [step, chargeId, balance])
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [step])
 
   const formatTime = s => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`
   const finalAmt = customAmt > 0 ? Number(customAmt) : selectedAmt
+
+  const finalizeTopupSuccess = async (confirmedBalance = null) => {
+    if (typeof confirmedBalance === 'number' && !Number.isNaN(confirmedBalance)) {
+      setSuccessBalance(confirmedBalance)
+      setStep('success')
+      return
+    }
+
+    try {
+      const newBal = await onRefreshBalance()
+      if (typeof newBal === 'number' && !Number.isNaN(newBal)) {
+        setSuccessBalance(newBal)
+        setStep('success')
+        return
+      }
+    } catch (error) {
+      console.error('Refresh balance after top-up failed:', error)
+    }
+
+    setSuccessBalance(balance + finalAmt)
+    setStep('success')
+  }
+
+  useEffect(() => {
+    if (step !== 'qr' || !chargeId) return
+
+    let isCancelled = false
+
+    const pollStatus = async () => {
+      try {
+        const data = await api.checkTopupStatus(chargeId)
+        if (isCancelled) return
+
+        if (isSuccessfulTopupStatus(data.status)) {
+          const confirmedBalance = Number(data.wallet_balance_after)
+          if (!Number.isNaN(confirmedBalance)) {
+            setSuccessBalance(confirmedBalance)
+            setStep('success')
+            return
+          }
+
+          try {
+            const newBal = await onRefreshBalance()
+            if (!isCancelled && typeof newBal === 'number' && !Number.isNaN(newBal)) {
+              setSuccessBalance(newBal)
+              setStep('success')
+              return
+            }
+          } catch (error) {
+            if (!isCancelled) {
+              console.error('Refresh balance after top-up failed:', error)
+            }
+          }
+
+          if (!isCancelled) {
+            setSuccessBalance(balance + finalAmt)
+            setStep('success')
+          }
+        }
+      } catch (e) {
+        if (!isCancelled) {
+          console.error('Poll error:', e)
+        }
+      }
+    }
+
+    void pollStatus()
+    const pollId = setInterval(pollStatus, 2000)
+
+    return () => {
+      isCancelled = true
+      clearInterval(pollId)
+    }
+  }, [balance, chargeId, finalAmt, onRefreshBalance, step])
 
   const handleConfirmTopUp = async () => {
     if (!localStorage.getItem('court_user')) return alert('กรุณาเข้าสู่ระบบก่อนเติมเงิน')
@@ -109,7 +175,8 @@ const WalletView = ({ onBack }) => {
         setStatusMsg('กำลังเข้ารหัสข้อมูลบัตรอย่างปลอดภัย...')
         cardToken = await new Promise((resolve, reject) => {
           if (!window.Omise) return reject(new Error('Omise.js not loaded'))
-          window.Omise.setPublicKey('pkey_test_6756z7gvq2rmken4hpu')
+          if (!OMISE_PUBLIC_KEY) return reject(new Error('Omise public key is not configured'))
+          window.Omise.setPublicKey(OMISE_PUBLIC_KEY)
           const params = {
             name: cardInfo.name,
             number: cardInfo.number.replace(/\s/g, ''),
@@ -134,9 +201,8 @@ const WalletView = ({ onBack }) => {
             window.location.href = data.authorize_uri
           } else if (data.status === 'successful') {
             // Immediate success - refresh and show popup
-            const newBal = await onRefreshBalance()
-            setSuccessBalance(newBal || (balance + finalAmt))
-            setStep('success')
+            const confirmedBalance = Number(data.wallet_balance_after)
+            await finalizeTopupSuccess(Number.isNaN(confirmedBalance) ? null : confirmedBalance)
           } else {
             // Still pending, start polling
             setStep('qr') // Using 'qr' step as the "Waiting" step (even for cards)
@@ -161,36 +227,172 @@ const WalletView = ({ onBack }) => {
     setProcessing(true)
     try {
       const data = await api.checkTopupStatus(chargeId)
-      const status = (data.status || '').toString().trim()
-      const isPaid = ['Paid', 'Confirmed', 'Success', 'successful'].some(s => s.toLowerCase() === status.toLowerCase())
+      const isPaid = isSuccessfulTopupStatus(data.status)
       
       if (isPaid) {
-        const newBal = await onRefreshBalance()
-        setSuccessBalance(newBal || (balance + finalAmt))
-        setStep('success')
+        const confirmedBalance = Number(data.wallet_balance_after)
+        await finalizeTopupSuccess(Number.isNaN(confirmedBalance) ? null : confirmedBalance)
       } else {
         alert('ยังไม่พบยอดชำระเงิน กรุณารอสักครู่')
       }
-    } catch (e) {
+    } catch {
       alert('ไม่สามารถตรวจสอบสถานะได้ โปรดลองอีกครั้ง')
     } finally {
       setProcessing(false)
     }
   }
 
+  const renderCardFields = (compact = false) => (
+    <div
+      className="glass-card flex-col fade-in"
+      style={{ background: '#fff', overflow: 'hidden', border: compact ? '2px solid var(--accent-primary)' : undefined }}
+    >
+      <div style={{ padding: compact ? '18px 20px' : '20px 24px', background: compact ? '#fff' : '#f8f9fa', borderBottom: '1px solid #eee', fontWeight: '700', fontSize: compact ? '0.95rem' : '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <CreditCard size={18} /> ข้อมูลบัตรสำหรับเติมเงิน
+      </div>
+      <div style={{ padding: compact ? '20px' : '32px' }} className="flex-col gap-md">
+        <div className="flex-col gap-xs">
+          <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#888' }}>หมายเลขบัตร</label>
+          <input
+            type="text"
+            placeholder="0000 0000 0000 0000"
+            value={cardInfo.number}
+            onChange={(e) => setCardInfoInputs({ ...cardInfo, number: formatCardNumber(e.target.value) })}
+            style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '1px solid #ddd', borderRadius: '10px' }}
+          />
+        </div>
+        <div className="flex-col gap-xs">
+          <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#888' }}>ชื่อผู้ถือบัตร</label>
+          <input
+            type="text"
+            placeholder="ENGLISH NAME"
+            value={cardInfo.name}
+            onChange={(e) => setCardInfoInputs({ ...cardInfo, name: e.target.value.toUpperCase() })}
+            style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '1px solid #ddd', borderRadius: '10px' }}
+          />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="flex-col gap-xs">
+            <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#888' }}>EXP (MM/YY)</label>
+            <input
+              type="text"
+              placeholder="MM/YY"
+              value={cardInfo.expiry}
+              onChange={(e) => setCardInfoInputs({ ...cardInfo, expiry: formatExpiry(e.target.value) })}
+              style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '1px solid #ddd', borderRadius: '10px' }}
+            />
+          </div>
+          <div className="flex-col gap-xs">
+            <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#888' }}>CVV</label>
+            <input
+              type="password"
+              placeholder="***"
+              value={cardInfo.cvc}
+              onChange={(e) => setCardInfoInputs({ ...cardInfo, cvc: e.target.value.replace(/\D/g, '') })}
+              style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '1px solid #ddd', borderRadius: '10px' }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderMethodCards = (compact = false) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? '12px' : '12px' }}>
+      {PAYMENT_METHODS_WALLET.map((m) => (
+        <div
+          key={m.id}
+          onClick={() => setMethod(m.id)}
+          style={{
+            padding: compact ? '18px 18px' : '16px 20px',
+            border: `2px solid ${method === m.id ? 'var(--accent-primary)' : '#eee'}`,
+            borderRadius: '16px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            background: method === m.id ? 'var(--accent-court)' : '#fff',
+            transition: 'all 0.15s',
+          }}
+        >
+          <div style={{ color: method === m.id ? 'var(--accent-primary)' : '#999' }}>{m.icon}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '700', fontSize: compact ? '1.05rem' : '1rem' }}>{m.name}</div>
+            <div style={{ fontSize: compact ? '0.82rem' : '0.8rem', color: '#888' }}>{m.desc}</div>
+          </div>
+          <input type="radio" checked={method === m.id} readOnly style={{ width: '18px', height: '18px' }} />
+        </div>
+      ))}
+    </div>
+  )
+
+  const renderAmountCard = (compact = false) => (
+    <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
+      <div style={{ padding: compact ? '18px 20px' : '20px 24px', background: compact ? '#fff' : '#f8f9fa', borderBottom: '1px solid #eee', fontWeight: '700', fontSize: compact ? '0.95rem' : '1rem' }}>
+        ระบุจำนวนเงินที่ต้องการเติม
+      </div>
+      <div style={{ padding: compact ? '20px' : '32px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+          {QUICK_AMOUNTS.map((amt) => (
+            <button
+              key={amt}
+              onClick={() => { setSelectedAmt(amt); setCustomAmt('') }}
+              style={{
+                padding: compact ? '18px 8px' : '20px 8px',
+                borderRadius: '12px',
+                border: `2px solid ${selectedAmt === amt && !customAmt ? 'var(--accent-primary)' : '#eee'}`,
+                background: selectedAmt === amt && !customAmt ? 'var(--accent-court)' : '#fff',
+                color: selectedAmt === amt && !customAmt ? 'var(--accent-primary)' : '#333',
+                fontWeight: '700',
+                fontSize: compact ? '1.05rem' : '1.2rem',
+                transition: 'all 0.15s'
+              }}
+            >
+              ฿{amt.toLocaleString()}
+            </button>
+          ))}
+        </div>
+        <div className="flex-col gap-xs">
+          <label style={{ fontSize: '0.85rem', color: '#999', fontWeight: '600', textTransform: 'uppercase' }}>หรือระบุจำนวนเงินเอง</label>
+          <input
+            type="number"
+            placeholder="เช่น 300"
+            value={customAmt}
+            onChange={(e) => setCustomAmt(e.target.value)}
+            style={{ width: '100%', padding: '16px', fontSize: '1.2rem', fontWeight: '700', border: customAmt ? '2px solid var(--accent-primary)' : '1px solid #ddd' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+
   if (step === 'success') return (
-    <div className="container fade-in">
-      <div className="glass-card flex-col gap-md" style={{ background: '#fff', padding: '40px 32px', textAlign: 'center' }}>
-        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #00b894, #00cec9)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+    <div className="booking-success-overlay">
+      <div className="glass-card fade-in booking-success-modal">
+        <div style={{
+          width: '80px', height: '80px', borderRadius: '50%',
+          background: 'linear-gradient(135deg, #00b894, #00cec9)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
+        }}>
           <CheckCircle2 size={40} color="#fff" />
         </div>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1a1a3a' }}>เติมเงินสำเร็จ! 🎉</h2>
-        <p style={{ color: '#666' }}>ยอดเงิน wallet ของคุณเพิ่มขึ้น</p>
-        <div style={{ background: '#f8fffe', borderRadius: '12px', padding: '20px', border: '1px solid #e0f2f1' }}>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: '#00b894' }}>+฿{finalAmt.toLocaleString()}</div>
-          <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '4px' }}>ยอดคงเหลือใหม่: ฿{Math.floor(successBalance || balance).toLocaleString('th-TH')}</div>
+        <h2 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#1a1a3a', marginBottom: '8px' }}>เติมเงินสำเร็จ!</h2>
+        <p style={{ color: '#666', fontSize: '0.95rem', marginBottom: '20px' }}>ยอดเงินใน Wallet ของคุณได้รับการอัปเดตเรียบร้อยแล้ว</p>
+        <div style={{ background: '#f8fffe', borderRadius: '12px', padding: '16px', marginBottom: '24px', textAlign: 'left', fontSize: '0.92rem', lineHeight: '2' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+            <span style={{ color: '#666' }}>ช่องทางการชำระ</span>
+            <strong style={{ textAlign: 'right' }}>{method === 'qr' ? 'PromptPay' : 'Credit / Debit Card'}</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+            <span style={{ color: '#666' }}>ยอดเติมเงิน</span>
+            <strong style={{ color: '#00b894' }}>+฿{finalAmt.toLocaleString()}</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+            <span style={{ color: '#666' }}>ยอดคงเหลือใหม่</span>
+            <strong>฿{Math.floor(successBalance || balance).toLocaleString('th-TH')}</strong>
+          </div>
         </div>
-        <button className="premium-button" style={{ width: '100%', marginTop: '12px' }} onClick={onBack}>กลับหน้าหลัก</button>
+        <button className="premium-button" style={{ width: '100%' }} onClick={onBack}>กลับหน้าหลัก</button>
       </div>
     </div>
   )
@@ -239,7 +441,7 @@ const WalletView = ({ onBack }) => {
   return (
     <div className="fade-in" style={{ paddingBottom: '100px', paddingTop: '20px' }}>
       <div className="container-wide">
-        <div className="booking-layout-grid">
+        <div className="wallet-desktop-layout booking-layout-grid">
            <div className="flex-col gap-lg">
               <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
                  <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '700', fontSize: '1.1rem' }}>กระเป๋าเงินของคุณ</div>
@@ -347,6 +549,49 @@ const WalletView = ({ onBack }) => {
                  </div>
               </div>
            </div>
+        </div>
+
+        <div className="wallet-mobile-layout flex-col gap-lg">
+          <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '700', fontSize: '1.05rem' }}>
+              เติมเงินเข้าสู่ Wallet
+            </div>
+            <div style={{ padding: '24px 20px', textAlign: 'center', background: '#fff' }}>
+              <div style={{ color: '#666', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>ยอดเงินคงเหลือปัจจุบัน</div>
+              <div style={{ fontSize: '2.3rem', fontWeight: '800', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>
+                ฿{balance.toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
+            <div style={{ padding: '20px', background: '#fff' }}>
+              {renderMethodCards(true)}
+            </div>
+          </div>
+
+          {method === 'credit' ? renderCardFields(true) : null}
+
+          {renderAmountCard(true)}
+
+          <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
+            <div style={{ padding: '20px' }}>
+              <div style={{ borderBottom: '1px solid #eee', paddingBottom: '14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '0.98rem' }}>
+                <span style={{ color: '#666' }}>ช่องทางการชำระ</span>
+                <strong>{method === 'qr' ? 'PromptPay' : 'Credit / Debit Card'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                <span style={{ color: '#666', fontWeight: '600' }}>ยอดเติมเงินรวม</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--accent-primary)' }}>฿{finalAmt.toLocaleString()}</span>
+              </div>
+              <button className="premium-button" style={{ width: '100%', padding: '20px' }} onClick={handleConfirmTopUp} disabled={processing}>
+                {processing ? 'กำลังดำเนินการ...' : 'ยืนยันการเติมเงิน'}
+              </button>
+              <button onClick={onBack} style={{ width: '100%', marginTop: '12px', background: 'none', border: 'none', color: '#666', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
+                ย้อนกลับ
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Users, Plus, Pencil, Trash2, X, Check } from 'lucide-react'
-import { useApp } from '../../context/AppContext'
+import { useApp } from '../../hooks/useApp'
 
 const AdminUsers = ({ initialFilter = '' }) => {
   const { mockDatabase: users, updateUserDB: onUpdateUsers } = useApp()

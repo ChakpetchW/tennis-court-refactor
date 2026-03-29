@@ -1,6 +1,6 @@
 import { api } from '../../services/api'
 import { TIME_SLOTS } from '../../data/constants'
-import { useApp } from '../../context/AppContext'
+import { useApp } from '../../hooks/useApp'
 
 const AdminAllotment = ({ selectedDate }) => {
   const { courts, setCourts: onUpdateCourts, fetchStatus } = useApp()

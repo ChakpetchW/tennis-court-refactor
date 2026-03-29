@@ -14,7 +14,6 @@ header("Content-Type: application/json; charset=UTF-8");
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
 require_once __DIR__ . '/config.php';  // Contains OMISE_SECRET_KEY, DB creds
-require_once __DIR__ . '/sms.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
 
@@ -142,6 +141,7 @@ if (!$chargeRes || isset($chargeRes['code'])) {
 }
 
 $status = 'Pending';
+$paymentProvider = $type === 'credit' ? 'card' : $type;
 if ($chargeRes['status'] === 'successful') {
     $status = 'Paid';
     
@@ -155,8 +155,8 @@ if ($chargeRes['status'] === 'successful') {
 }
 
 // Save charge to DB
-$stmt = $conn->prepare("UPDATE bookings SET payment_provider='omise', transaction_ref=?, status=? WHERE id=?");
-$stmt->execute([$chargeRes['id'], $status, $booking_id]);
+$stmt = $conn->prepare("UPDATE bookings SET payment_provider=?, transaction_ref=?, status=? WHERE id=?");
+$stmt->execute([$paymentProvider, $chargeRes['id'], $status, $booking_id]);
 
 echo json_encode([
     'success'       => true,

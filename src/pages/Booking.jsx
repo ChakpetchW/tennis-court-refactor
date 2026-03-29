@@ -1,18 +1,15 @@
-import React, { useState, useEffect } from 'react'
-import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, CheckCircle2, X } from 'lucide-react'
-import courtV from '../assets/court_v.png'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
 import courtH from '../assets/court_h.png'
 import { TIME_SLOTS } from '../data/constants'
-import { useApp } from '../context/AppContext'
+import { useApp } from '../hooks/useApp'
 
 function Booking({ onBack, onCheckout }) {
-  const { user, courts, fetchStatus } = useApp()
+  const { courts, fetchStatus } = useApp()
   const [step, setStep] = useState(1)
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('sv-SE'))
   const [selectedCourtId, setSelectedCourtId] = useState(null)
   const [selectedTime, setSelectedTime] = useState(null)
-  const [location, setLocation] = useState('Tennis Court')
-  const [dates, setDates] = useState([])
   const scrollRef = React.useRef(null)
 
   const scrollScrollbar = (offset) => {
@@ -24,14 +21,13 @@ function Booking({ onBack, onCheckout }) {
   // Derived selected court from the prop (ensures we always have the latest allotments)
   const selectedCourt = courts.find(c => c.id === selectedCourtId)
 
-  useEffect(() => {
-    const d = []
-    for (let i = 0; i < 14; i++) {
+  const dates = useMemo(() => {
+    const nextDates = []
+    for (let i = 0; i < 15; i += 1) {
       const date = new Date()
       date.setDate(date.getDate() + i)
-      // Use local date string instead of ISO to avoid UTC jump
       const fullDate = date.toLocaleDateString('sv-SE')
-      d.push({
+      nextDates.push({
         full: fullDate,
         day: date.toLocaleDateString('th-TH', { weekday: 'short' }),
         date: date.getDate(),
@@ -39,18 +35,13 @@ function Booking({ onBack, onCheckout }) {
         year: date.getFullYear()
       })
     }
-    setDates(d)
+    return nextDates
   }, [])
 
   // Fetch status whenever date changes
   useEffect(() => {
     if (fetchStatus) fetchStatus(selectedDate)
   }, [selectedDate, fetchStatus])
-
-  // Reset time selection when switching courts or dates to prevent selecting 'Full' slots from previous view
-  useEffect(() => {
-    setSelectedTime(null)
-  }, [selectedCourtId, selectedDate])
 
   const handleNextStep = () => {
     if (step === 1 && selectedCourt && selectedTime) {
@@ -101,7 +92,10 @@ function Booking({ onBack, onCheckout }) {
                   {dates.map((d) => (
                     <button
                       key={d.full}
-                      onClick={() => setSelectedDate(d.full)}
+                      onClick={() => {
+                        setSelectedDate(d.full)
+                        setSelectedTime(null)
+                      }}
                       style={{
                         minWidth: '85px',
                         padding: '20px 10px',
@@ -154,7 +148,10 @@ function Booking({ onBack, onCheckout }) {
                           <div
                             key={court.id}
                             style={{ gridColumn: 'span 4' }}
-                            onClick={() => setSelectedCourtId(court.id)}
+                            onClick={() => {
+                              setSelectedCourtId(court.id)
+                              setSelectedTime(null)
+                            }}
                           >
                             <div className={`court-image-box ${selectedCourtId === court.id ? 'selected' : ''}`}
                               style={{
@@ -165,11 +162,19 @@ function Booking({ onBack, onCheckout }) {
                                 textAlign: 'center',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
-                                position: 'relative'
+                                position: 'relative',
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                               }}
                             >
-                              <img src={courtH} style={{ width: '80px', marginBottom: '8px', filter: 'brightness(1.2)' }} alt="" />
-                              <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{court.name}</div>
+                              <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '8px' }}>
+                                <img src={courtH} style={{ width: '80px', display: 'block', flex: '0 0 auto', filter: 'brightness(1.2)' }} alt="" />
+                              </div>
+                              <div style={{ width: '100%', fontWeight: '600', fontSize: '0.9rem', textAlign: 'center' }}>{court.name}</div>
                               {selectedCourtId === court.id && (
                                 <div style={{ position: 'absolute', top: '8px', right: '8px', color: 'var(--accent-secondary)' }}>
                                   <CheckCircle2 size={18} />
@@ -189,7 +194,10 @@ function Booking({ onBack, onCheckout }) {
                           <div
                             key={court.id}
                             style={{ gridColumn: `span ${span}` }}
-                            onClick={() => setSelectedCourtId(court.id)}
+                            onClick={() => {
+                              setSelectedCourtId(court.id)
+                              setSelectedTime(null)
+                            }}
                           >
                             <div className={`court-image-box ${selectedCourtId === court.id ? 'selected' : ''}`}
                               style={{
@@ -200,19 +208,28 @@ function Booking({ onBack, onCheckout }) {
                                 textAlign: 'center',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
-                                position: 'relative'
+                                position: 'relative',
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                               }}
                             >
-                               <img
-                                 src={courtH}
-                                 style={{
-                                   width: '80px',
-                                   marginBottom: '8px',
-                                   filter: 'brightness(1.2)'
-                                 }}
-                                 alt=""
-                               />
-                              <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{court.name}</div>
+                              <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '8px' }}>
+                                <img
+                                  src={courtH}
+                                  style={{
+                                    width: '80px',
+                                    display: 'block',
+                                    flex: '0 0 auto',
+                                    filter: 'brightness(1.2)'
+                                  }}
+                                  alt=""
+                                />
+                              </div>
+                              <div style={{ width: '100%', fontWeight: '600', fontSize: '0.9rem', textAlign: 'center' }}>{court.name}</div>
                               {selectedCourtId === court.id && (
                                 <div style={{ position: 'absolute', top: '8px', right: '8px', color: 'var(--accent-secondary)' }}>
                                   <CheckCircle2 size={18} />
@@ -231,7 +248,10 @@ function Booking({ onBack, onCheckout }) {
                           <div
                             key={court.id}
                             style={{ gridColumn: 'span 4' }}
-                            onClick={() => setSelectedCourtId(court.id)}
+                            onClick={() => {
+                              setSelectedCourtId(court.id)
+                              setSelectedTime(null)
+                            }}
                           >
                             <div className={`court-image-box ${selectedCourtId === court.id ? 'selected' : ''}`}
                               style={{
@@ -242,11 +262,19 @@ function Booking({ onBack, onCheckout }) {
                                 textAlign: 'center',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
-                                position: 'relative'
+                                position: 'relative',
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                               }}
                             >
-                              <img src={courtH} style={{ width: '80px', marginBottom: '8px', filter: 'brightness(1.2)' }} alt="" />
-                              <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{court.name}</div>
+                              <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '8px' }}>
+                                <img src={courtH} style={{ width: '80px', display: 'block', flex: '0 0 auto', filter: 'brightness(1.2)' }} alt="" />
+                              </div>
+                              <div style={{ width: '100%', fontWeight: '600', fontSize: '0.9rem', textAlign: 'center' }}>{court.name}</div>
                               {selectedCourtId === court.id && (
                                 <div style={{ position: 'absolute', top: '8px', right: '8px', color: 'var(--accent-secondary)' }}>
                                   <CheckCircle2 size={18} />

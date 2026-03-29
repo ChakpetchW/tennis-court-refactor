@@ -8,7 +8,7 @@
  *  2. On charge.complete + successful → update DB + send SMS
  */
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/sms.php';
+require_once __DIR__ . '/mailer.php';
 
 $payload   = file_get_contents('php://input');
 $signatureHeader = $_SERVER['HTTP_OMISE_SIGNATURE'] ?? '';
@@ -111,7 +111,7 @@ if ($key === 'charge.complete' && ($data['status'] ?? '') === 'successful') {
     }
 
     // ---- 3. Confirm Booking: pending → booked ----
-    $stmt = $conn->prepare("SELECT b.*, u.name as customer_name, u.phone, c.name as court_name
+    $stmt = $conn->prepare("SELECT b.*, u.name as customer_name, u.phone, u.email, c.name as court_name
                             FROM bookings b
                             JOIN users u ON b.user_id = u.id
                             JOIN courts c ON b.court_id = c.id
@@ -133,18 +133,19 @@ if ($key === 'charge.complete' && ($data['status'] ?? '') === 'successful') {
         ");
         $stmtAlloc->execute([$courtId, $date, $hour, $customerName]);
 
-        // ---- 4. Send SMS ----
-        $smsData = [
-            'court_name'    => $booking['court_name'],
-            'date'          => $booking['booking_date'],
-            'time'          => $booking['booking_time'],
-            'customer_name' => $booking['customer_name'],
-            'booking_id'    => $bookingId,
-        ];
-        $msg = buildBookingConfirmSMS($smsData);
-        sendSMS($booking['phone'], $msg, SMS_API_KEY, SMS_API_SECRET);
-
-        error_log('[Webhook] Booking #' . $bookingId . ' confirmed. SMS sent to ' . $booking['phone']);
+        if (!empty($booking['email'])) {
+            $mailData = [
+                'court_name' => $booking['court_name'],
+                'date' => $booking['booking_date'],
+                'time' => $booking['booking_time'],
+                'customer_name' => $booking['customer_name'],
+                'booking_id' => $bookingId,
+                'payment_provider' => $booking['payment_provider'] ?? '',
+                'price' => $booking['price'] ?? 0,
+            ];
+            send_booking_confirmation_email($booking['email'], $mailData);
+            error_log('[Webhook] Booking #' . $bookingId . ' confirmed. Email sent to ' . $booking['email']);
+        }
     }
 
     http_response_code(200);

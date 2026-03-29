@@ -1,22 +1,50 @@
 import React, { useState } from 'react'
-import { useApp } from '../../context/AppContext'
+import { useApp } from '../../hooks/useApp'
+
+const formatDisplayDate = (isoDate) => {
+  const [year, month, day] = (isoDate || '').split('-')
+  if (!year || !month || !day) {
+    return isoDate || '-'
+  }
+
+  return `${day}/${month}/${year}`
+}
+
+const getPaymentBadge = (booking) => {
+  const provider = (booking.payment_provider || '').toString().trim().toLowerCase()
+
+  if (provider === 'wallet') {
+    return { label: 'Wallet', background: '#eefaf3', color: '#1f7a45' }
+  }
+
+  if (provider === 'card' || provider === 'credit') {
+    return { label: 'Card', background: '#eef4ff', color: '#2457c5' }
+  }
+
+  if (provider === 'promptpay' || provider === 'qr') {
+    return { label: 'PromptPay', background: '#fff4e6', color: '#c76b00' }
+  }
+
+  if (provider === 'omise') {
+    return { label: 'Omise', background: '#f3f0ff', color: '#5f3dc4' }
+  }
+
+  return { label: 'Unknown', background: '#f1f3f5', color: '#6c757d' }
+}
 
 const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
   const { adminBookings } = useApp()
   const [courtFilter, setCourtFilter] = useState('All')
   const [timeFilter, setTimeFilter] = useState('All')
 
-  // Filter for both Date and PAID status only
-  const baseBookings = (adminBookings || []).filter(b => b.date === selectedDate && b.status === 'Paid')
+  const baseBookings = (adminBookings || []).filter((booking) => booking.date === selectedDate && booking.status === 'Paid')
 
-  // Derive unique filter options
-  const uniqueCourts = [...new Set(baseBookings.map(b => b.court).filter(Boolean))].sort()
-  const uniqueTimes = [...new Set(baseBookings.map(b => b.hour).filter(Boolean))].sort()
+  const uniqueCourts = [...new Set(baseBookings.map((booking) => booking.court).filter(Boolean))].sort()
+  const uniqueTimes = [...new Set(baseBookings.map((booking) => booking.hour).filter(Boolean))].sort()
 
-  // Apply UI Filters
-  const filteredBookings = baseBookings.filter(b => {
-    const matchCourt = courtFilter === 'All' || b.court === courtFilter
-    const matchTime = timeFilter === 'All' || b.hour === timeFilter
+  const filteredBookings = baseBookings.filter((booking) => {
+    const matchCourt = courtFilter === 'All' || booking.court === courtFilter
+    const matchTime = timeFilter === 'All' || booking.hour === timeFilter
     return matchCourt && matchTime
   })
 
@@ -32,30 +60,36 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
   return (
     <div className="flex-col gap-md">
       <div className="flex-row items-center justify-between wrap gap-md">
-        <h3 style={{ fontSize: '1.4rem', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)', margin: 0 }}>Reservations for {selectedDate}</h3>
-        
+        <h3 style={{ fontSize: '1.4rem', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)', margin: 0 }}>
+          Reservations for {formatDisplayDate(selectedDate)}
+        </h3>
+
         <div className="flex-row items-center gap-sm">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', padding: '6px 12px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
             <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'bold' }}>COURT:</span>
-            <select 
-              value={courtFilter} 
-              onChange={(e) => setCourtFilter(e.target.value)}
+            <select
+              value={courtFilter}
+              onChange={(event) => setCourtFilter(event.target.value)}
               style={{ border: 'none', background: 'transparent', color: 'var(--accent-primary)', fontWeight: '700', outline: 'none', cursor: 'pointer' }}
             >
               <option value="All">All Courts</option>
-              {uniqueCourts.map(c => <option key={c} value={c}>{c}</option>)}
+              {uniqueCourts.map((court) => (
+                <option key={court} value={court}>{court}</option>
+              ))}
             </select>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', padding: '6px 12px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
             <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'bold' }}>TIME:</span>
-            <select 
-              value={timeFilter} 
-              onChange={(e) => setTimeFilter(e.target.value)}
+            <select
+              value={timeFilter}
+              onChange={(event) => setTimeFilter(event.target.value)}
               style={{ border: 'none', background: 'transparent', color: 'var(--accent-primary)', fontWeight: '700', outline: 'none', cursor: 'pointer' }}
             >
               <option value="All">All Times</option>
-              {uniqueTimes.map(t => <option key={t} value={t}>{t}:00</option>)}
+              {uniqueTimes.map((time) => (
+                <option key={time} value={time}>{time}:00</option>
+              ))}
             </select>
           </div>
         </div>
@@ -65,41 +99,67 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px', fontSize: '0.95rem' }}>
           <thead>
             <tr>
+              <th style={{ padding: '16px 20px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Booking ID</th>
               <th style={{ padding: '16px 24px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Customer</th>
               <th style={{ padding: '16px 24px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Location</th>
               <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Schedule</th>
               <th style={{ padding: '16px 24px', textAlign: 'right', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Price</th>
+              <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Payment</th>
               <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Status</th>
             </tr>
           </thead>
           <tbody>
-            {filteredBookings.length > 0 ? filteredBookings.map((b, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                <td 
-                  style={{ padding: '14px 16px', color: 'var(--accent-primary)', fontWeight: '600', cursor: 'pointer' }}
-                  onClick={() => onActiveUserFilter(b.user?.name || b.name)}
-                >
-                  {b.user?.name || b.name}
-                </td>
-                <td style={{ padding: '14px 16px' }}>{b.court}</td>
-                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                  {b.hour || '00:00'} - {(parseInt(b.hour || 0) + 1).toString().padStart(2, '0')}:00
-                </td>
+            {filteredBookings.length > 0 ? filteredBookings.map((booking, index) => {
+              const paymentBadge = getPaymentBadge(booking)
 
-                <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: '700' }}>฿{parseFloat(b.price || 0).toLocaleString()}</td>
-                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                  <span style={{ 
-                    background: b.status === 'pending' ? '#fff9db' : '#e6fffa', 
-                    color: b.status === 'pending' ? '#f59f00' : '#2c7a7b', 
-                    padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' 
-                  }}>
-                    {b.status}
-                  </span>
-                </td>
-              </tr>
-            )) : (
+              return (
+                <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '14px 16px', color: '#667085', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                    #{booking.id}
+                  </td>
+                  <td
+                    style={{ padding: '14px 16px', color: 'var(--accent-primary)', fontWeight: '600', cursor: 'pointer' }}
+                    onClick={() => onActiveUserFilter(booking.user?.name || booking.name)}
+                  >
+                    {booking.user?.name || booking.name}
+                  </td>
+                  <td style={{ padding: '14px 16px' }}>{booking.court}</td>
+                  <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                    {booking.hour || '00:00'} - {(parseInt(booking.hour || 0, 10) + 1).toString().padStart(2, '0')}:00
+                  </td>
+                  <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: '700' }}>฿{parseFloat(booking.price || 0).toLocaleString()}</td>
+                  <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                    <span style={{
+                      background: paymentBadge.background,
+                      color: paymentBadge.color,
+                      padding: '5px 12px',
+                      borderRadius: '999px',
+                      fontSize: '0.75rem',
+                      fontWeight: '800',
+                      letterSpacing: '0.02em',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {paymentBadge.label}
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                    <span style={{
+                      background: booking.status === 'pending' ? '#fff9db' : '#e6fffa',
+                      color: booking.status === 'pending' ? '#f59f00' : '#2c7a7b',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                    }}>
+                      {booking.status}
+                    </span>
+                  </td>
+                </tr>
+              )
+            }) : (
               <tr>
-                <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>
+                <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>
                   No matches for these filters.
                 </td>
               </tr>

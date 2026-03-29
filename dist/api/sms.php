@@ -1,14 +1,11 @@
 <?php
 /**
- * SMS Helper — Thaibulksms
+ * SMS Helper - Thaibulksms
  * Called after a successful payment to notify the customer.
- * 
- * Config: Edit KEY and SECRET from your Thaibulksms dashboard
- * https://developer.thaibulksms.com/
  */
 
 function sendSMS($phone, $message, $apiKey, $apiSecret) {
-    // Normalize: 08xxxxxxxx → 668xxxxxxxx
+    // Normalize 08xxxxxxxx -> 668xxxxxxxx
     $phone = preg_replace('/^0/', '66', $phone);
     $phone = preg_replace('/[^0-9]/', '', $phone);
 
@@ -37,6 +34,7 @@ function sendSMS($phone, $message, $apiKey, $apiSecret) {
         error_log('[SMS] cURL Error: ' . $error);
         return false;
     }
+
     $result = json_decode($response, true);
     error_log('[SMS] Response: ' . $response);
     return $result;
@@ -47,11 +45,12 @@ function sendSMS($phone, $message, $apiKey, $apiSecret) {
  */
 function buildBookingConfirmSMS($booking) {
     $timeEnd = date('H:00', strtotime($booking['time']) + 3600);
-    return "✅ จองสนามสำเร็จ!\n" .
+
+    return "ยืนยันการจองสนามสำเร็จ\n" .
            "สนาม: {$booking['court_name']}\n" .
            "วันที่: {$booking['date']}\n" .
            "เวลา: {$booking['time']}-{$timeEnd}\n" .
-           "ชื่อ: {$booking['customer_name']}\n" .
-           "เลขที่: #{$booking['booking_id']}\n" .
-           "ขอบคุณที่ใช้บริการ Crystal Sports 🎾";
+           "ชื่อผู้จอง: {$booking['customer_name']}\n" .
+           "เลขที่การจอง: #{$booking['booking_id']}\n" .
+           "ขอบคุณที่ใช้บริการ Tennis Court";
 }

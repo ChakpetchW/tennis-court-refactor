@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { QrCode, Wallet, CreditCard, Landmark, CheckCircle2, ChevronLeft } from 'lucide-react'
 import { api } from '../services/api'
-import { useApp } from '../context/AppContext'
+import { useApp } from '../hooks/useApp'
 import { INITIAL_COURTS } from '../data/constants'
+
+const OMISE_PUBLIC_KEY = import.meta.env.VITE_OMISE_PUBLIC_KEY || ''
 
 const PAYMENT_METHODS = [
   { id: 'qr',      name: 'QR Code',        icon: <QrCode size={26} />,       description: 'PromptPay' },
@@ -11,7 +13,7 @@ const PAYMENT_METHODS = [
 ]
 
 function Checkout({ booking, onBack, onComplete }) {
-  const { user, walletBalance, updateWallet, apiSettings } = useApp()
+  const { user, walletBalance, fetchUserBalance } = useApp()
   const price = Number(booking?.price || booking?.court?.price_per_hour || booking?.court?.rate || 500)
   const [timeLeft, setTimeLeft]             = useState(900)
   const [selectedMethod, setSelectedMethod] = useState('qr')
@@ -23,7 +25,7 @@ function Checkout({ booking, onBack, onComplete }) {
     try {
       const saved = localStorage.getItem(`charge_${booking.id}`)
       return saved ? JSON.parse(saved) : null
-    } catch (e) { return null }
+    } catch { return null }
   })
 
   // Persistence: Update localStorage whenever chargeInfo changes
@@ -42,7 +44,7 @@ function Checkout({ booking, onBack, onComplete }) {
     try {
       const saved = localStorage.getItem(`charge_${booking.id}`)
       return saved ? 'qr' : 'idle'
-    } catch (e) { return 'idle' }
+    } catch { return 'idle' }
   }) // idle | processing | qr | success
   const [payStatus, setPayStatus]           = useState('')
   const [isPollingError, setIsPollingError] = useState(false)
@@ -72,6 +74,12 @@ function Checkout({ booking, onBack, onComplete }) {
     return () => clearInterval(timer)
   }, [timeLeft])
 
+  useEffect(() => {
+    if (!paymentSuccess) return
+
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [paymentSuccess])
+
   // Polling for payment status
   useEffect(() => {
     // We need both the payment flow to be visible and have a valid charge reference
@@ -91,7 +99,7 @@ function Checkout({ booking, onBack, onComplete }) {
           setPaymentSuccess(true)
           setPaymentStep('success')
         }
-      } catch (e) { 
+      } catch { 
         setIsPollingError(true)
       }
     }, 2000)
@@ -122,7 +130,8 @@ function Checkout({ booking, onBack, onComplete }) {
     try {
       const cardToken = await new Promise((resolve, reject) => {
         if (!window.Omise) { reject(new Error('Omise.js not loaded')); return }
-        window.Omise.setPublicKey('pkey_test_6756z7gvq2rmken4hpu');
+        if (!OMISE_PUBLIC_KEY) { reject(new Error('Omise public key is not configured')); return }
+        window.Omise.setPublicKey(OMISE_PUBLIC_KEY);
         const params = {
           name: cardInfo.name,
           number: cardInfo.number.replace(/\s/g, ''),
@@ -161,8 +170,8 @@ function Checkout({ booking, onBack, onComplete }) {
       } else {
         alert(data.error || 'ชำระเงินไม่สำเร็จ');
       }
-    } catch (err) {
-      alert('เกิดข้อผิดพลาด: ' + err.message);
+    } catch (error) {
+      alert('เกิดข้อผิดพลาด: ' + error.message);
     } finally {
       setIsProcessing(false);
     }
@@ -186,11 +195,24 @@ function Checkout({ booking, onBack, onComplete }) {
       }
       try {
         setPayStatus('กำลังหักเงินจาก Wallet...')
-        await updateWallet(prev => prev - price)
+        const courtRef = INITIAL_COURTS.find(c => c.name === (booking.court?.name || booking.court))
+        const paymentResult = await api.processWalletPayment({
+          user_id: user.id,
+          amount: price,
+          booking_id: booking.id,
+          court_id: courtRef?.id,
+          date: booking.date,
+          hour: booking.time,
+          user_name: user.name
+        })
+        if (!paymentResult.success) {
+          throw new Error(paymentResult.error || 'Wallet payment failed')
+        }
+        await fetchUserBalance()
         setPaymentSuccess(true)
         setPaymentStep('success')
         // No overlay for wallet, just success modal
-      } catch (err) {
+      } catch {
         alert('เกิดข้อผิดพลาดในการหักเงินจาก Wallet')
       }
       setIsProcessing(false)
@@ -219,7 +241,7 @@ function Checkout({ booking, onBack, onComplete }) {
       } else {
         alert(data.error || 'ไม่สามารถสร้าง QR Code ได้')
       }
-    } catch (err) {
+    } catch {
       alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์')
     } finally {
       setIsProcessing(false)
@@ -247,7 +269,7 @@ function Checkout({ booking, onBack, onComplete }) {
         const statusMsg = data.status || 'รอดำเนินการ';
         alert(`ระบบยังไม่ได้รับยอดเงินของคุณ กรุณารอสักครู่\n(สถานะปัจจุบัน: ${statusMsg})`)
       }
-    } catch (e) {
+    } catch {
       alert('ไม่สามารถตรวจสอบสถานะได้ในขณะนี้ กรุณาลองใหม่ภายหลัง');
     } finally {
       setIsProcessing(false)
@@ -280,9 +302,23 @@ function Checkout({ booking, onBack, onComplete }) {
           <div style={{ padding: '32px', background: '#fff' }}>
              <div className="profile-info-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
                 {infoItems.map((item, idx) => (
-                   <div key={idx} className="profile-info-item" style={{ borderBottom: '1px solid #f8f8f8', paddingBottom: '8px' }}>
+                   <div key={idx} className="profile-info-item" style={{ borderBottom: '1px solid #f8f8f8', paddingBottom: '8px', minWidth: 0 }}>
                     <span className="profile-info-label" style={{ color: '#999', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', display: 'block' }}>{item.label}</span>
-                    <span className="profile-info-value" style={{ fontSize: '1.1rem', fontWeight: '700', color: '#333' }}>{item.value}</span>
+                    <span
+                      className="profile-info-value"
+                      style={{
+                        fontSize: '1.1rem',
+                        fontWeight: '700',
+                        color: '#333',
+                        display: 'block',
+                        minWidth: 0,
+                        overflowWrap: 'anywhere',
+                        wordBreak: 'break-word',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {item.value}
+                    </span>
                   </div>
                 ))}
              </div>
@@ -463,14 +499,8 @@ function Checkout({ booking, onBack, onComplete }) {
 
       {/* ✅ Premium Payment Success Modal (Popup) */}
       {paymentSuccess && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px',
-        }}>
-          <div className="glass-card fade-in" style={{
-            background: '#fff', borderRadius: '20px', padding: '40px 32px', maxWidth: '420px',
-            width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-          }}>
+        <div className="booking-success-overlay">
+          <div className="glass-card fade-in booking-success-modal">
             <div style={{
               width: '80px', height: '80px', borderRadius: '50%',
               background: 'linear-gradient(135deg, #00b894, #00cec9)',
@@ -492,7 +522,12 @@ function Checkout({ booking, onBack, onComplete }) {
               style={{ width: '100%', background: '#1a1a3a', padding: '16px', borderRadius: '12px', fontSize: '1rem', fontWeight: '700' }}
               onClick={() => {
                 localStorage.removeItem(`charge_${booking.id}`)
-                onComplete()
+                const completedPaymentMethod = selectedMethod === 'credit'
+                  ? 'card'
+                  : selectedMethod === 'qr'
+                    ? 'promptpay'
+                    : selectedMethod
+                onComplete(completedPaymentMethod)
               }}
             >
               กลับสู่หน้าหลัก

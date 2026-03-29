@@ -1,1 +1,1 @@
-export { useBooking as useAllotments } from '../context/BookingContext'
+export { useBooking as useAllotments } from './useBooking'

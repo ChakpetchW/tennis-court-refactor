@@ -102,6 +102,8 @@ try {
     $stmt = $conn->prepare("UPDATE wallet_transactions SET charge_id = ? WHERE id = ?");
     $stmt->execute([$chargeRes['id'], $transaction_id]);
 
+    $walletBalanceAfter = null;
+
     // 4. IMMEDIATE UPDATE if successful (common for non-3DS cards)
     if (isset($chargeRes['status']) && $chargeRes['status'] === 'successful') {
         $conn->prepare("UPDATE wallet_transactions SET status = 'Paid' WHERE id = ?")
@@ -109,6 +111,13 @@ try {
         
         $conn->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?")
              ->execute([$amount, $user_id]);
+
+        $stmtBalance = $conn->prepare("SELECT wallet_balance FROM users WHERE id = ? LIMIT 1");
+        $stmtBalance->execute([$user_id]);
+        $walletBalance = $stmtBalance->fetchColumn();
+        if ($walletBalance !== false) {
+            $walletBalanceAfter = (float) $walletBalance;
+        }
     }
 
     echo json_encode([
@@ -116,7 +125,8 @@ try {
         'status'        => $chargeRes['status'] ?? 'pending',
         'charge_id'     => $chargeRes['id'],
         'qr_code_uri'   => $chargeRes['source']['scannable_code']['image']['download_uri'] ?? null,
-        'authorize_uri' => $chargeRes['authorize_uri'] ?? null
+        'authorize_uri' => $chargeRes['authorize_uri'] ?? null,
+        'wallet_balance_after' => $walletBalanceAfter
     ]);
 
 } catch(PDOException $e) {

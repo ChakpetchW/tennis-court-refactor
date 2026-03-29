@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
-import { Menu, User, Wallet, History, LogOut, Calendar, CircleDot } from 'lucide-react'
-import { useApp } from '../context/AppContext'
+import { Calendar, History, LogOut, Menu, User, Wallet } from 'lucide-react'
+import { useApp } from '../hooks/useApp'
 
 export const Header = ({ onViewChange }) => {
-  const { user } = useApp()
+  const { user, logout } = useApp()
   const [showMenu, setShowMenu] = useState(false)
 
   if (!user) return null
@@ -23,17 +23,26 @@ export const Header = ({ onViewChange }) => {
         <span style={{ fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em', textTransform: 'uppercase' }}>TENNIS COURT</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setShowMenu(!showMenu)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setShowMenu((current) => !current)}>
           <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1a1a1a' }}>{user.name}</span>
           <Menu size={28} color="#1a1a1a" />
         </div>
 
         {showMenu && (
-          <div className="glass-card flex-col fade-in" style={{
-            position: 'absolute', top: '48px', right: 0, width: '220px',
-            background: '#fff', border: '1px solid #eee', boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-            zIndex: 1001, padding: '8px'
-          }}>
+          <div
+            className="glass-card flex-col fade-in"
+            style={{
+              position: 'absolute',
+              top: '48px',
+              right: 0,
+              width: '220px',
+              background: '#fff',
+              border: '1px solid #eee',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+              zIndex: 1001,
+              padding: '8px',
+            }}
+          >
             <button className="secondary-button" style={{ color: '#333', textAlign: 'left', border: 'none' }} onClick={() => navigate('booking')}>
               <Calendar size={16} style={{ marginRight: '8px' }} /> จองสนาม
             </button>
@@ -47,10 +56,7 @@ export const Header = ({ onViewChange }) => {
               <User size={16} style={{ marginRight: '8px' }} /> ข้อมูลส่วนตัว
             </button>
             <div style={{ borderTop: '1px solid #eee', margin: '4px 0' }} />
-            <button className="secondary-button" style={{ color: '#333', textAlign: 'left', border: 'none' }} onClick={() => {
-              localStorage.removeItem('court_user')
-              window.location.reload()
-            }}>
+            <button className="secondary-button" style={{ color: '#333', textAlign: 'left', border: 'none' }} onClick={logout}>
               <LogOut size={16} style={{ marginRight: '8px' }} /> ออกจากระบบ
             </button>
           </div>

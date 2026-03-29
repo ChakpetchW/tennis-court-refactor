@@ -1,160 +1,166 @@
 import React, { useState } from 'react'
-import { ShieldCheck } from 'lucide-react'
-import { useApp } from '../../context/AppContext'
+import { Mail, RotateCcw, ShieldCheck } from 'lucide-react'
+import { api } from '../../services/api'
 
 const AdminSettings = () => {
-  const { apiSettings, setApiSettings: onUpdateSettings } = useApp()
-  const [isSettingsUnlocked, setIsSettingsUnlocked] = useState(false)
-  const [adminPassAttempt, setAdminPassAttempt] = useState('')
+  const [isClearingOpcache, setIsClearingOpcache] = useState(false)
+  const [opcacheMessage, setOpcacheMessage] = useState('')
+  const [opcacheError, setOpcacheError] = useState('')
+  const [isLoadingMailLogs, setIsLoadingMailLogs] = useState(false)
+  const [mailLogError, setMailLogError] = useState('')
+  const [mailLogs, setMailLogs] = useState([])
 
-  if (!isSettingsUnlocked) {
-    return (
-      <div className="flex-col gap-md" style={{ textAlign: 'center', padding: '40px' }}>
-        <ShieldCheck size={48} style={{ margin: '0 auto', color: 'var(--accent-primary)' }} />
-        <h3>ระบุรหัสผ่านเพื่อแก้ไขการตั้งค่า</h3>
-        <input 
-          type="password" 
-          placeholder="ป้อนรหัสผ่าน..." 
-          value={adminPassAttempt}
-          onChange={(e) => setAdminPassAttempt(e.target.value)}
-          style={{ textAlign: 'center', margin: '0 auto', width: '300px' }}
-        />
-        <button 
-          className="premium-button"
-          style={{ margin: '0 auto', width: '300px' }}
-          onClick={() => {
-            if (adminPassAttempt === apiSettings.adminPassword) {
-              setIsSettingsUnlocked(true)
-            } else {
-              alert('รหัสผ่านไม่ถูกต้อง')
-            }
-          }}
-        >
-          ตรวจสอบรหัสผ่าน
-        </button>
-      </div>
-    )
+  const handleClearOpcache = async () => {
+    setIsClearingOpcache(true)
+    setOpcacheMessage('')
+    setOpcacheError('')
+
+    try {
+      const response = await api.clearOpcache()
+      setOpcacheMessage(response.message || 'PHP OPcache cleared successfully')
+    } catch (error) {
+      setOpcacheError(error.message || 'Unable to clear PHP OPcache')
+    } finally {
+      setIsClearingOpcache(false)
+    }
+  }
+
+  const handleLoadMailLogs = async () => {
+    setIsLoadingMailLogs(true)
+    setMailLogError('')
+
+    try {
+      const response = await api.getMailLogs()
+      setMailLogs(response.entries || [])
+    } catch (error) {
+      setMailLogError(error.message || 'Unable to load mail logs')
+    } finally {
+      setIsLoadingMailLogs(false)
+    }
   }
 
   return (
-    <div className="flex-col gap-md" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-      <div className="flex-col gap-lg">
-        <div style={{ padding: '12px', background: '#e1f5fe', color: '#0288d1', borderRadius: '8px', fontSize: '0.85rem' }}>
-          <strong>OTP Login Setting</strong>
+    <div className="flex-col gap-lg" style={{ maxWidth: '860px', margin: '0 auto', width: '100%' }}>
+      <div style={{ padding: '20px 24px', background: '#eef6ff', color: '#0f4c81', borderRadius: '16px', border: '1px solid #d5e7ff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+          <ShieldCheck size={22} />
+          <strong>Operations</strong>
         </div>
+        <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+          เครื่องมือนี้มีไว้สำหรับงานดูแลระบบที่ต้องใช้จริงหลัง deploy เท่านั้น
+        </p>
+      </div>
 
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>Your Webhook Callback URL (ให้ผู้ให้บริการ SMS เรียกมาที่นี่)</label>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <input 
-              type="text" 
-              readOnly
-              value={`https://api.tenniscourt-booking.com/v1/webhook/otp/callback`}
-              style={{ flex: 1, background: '#f0f0f0', color: '#666', border: '1px dashed #ccc' }}
-            />
-            <button 
-              className="premium-button" 
-              style={{ width: '80px', padding: '8px', fontSize: '0.8rem' }}
-              onClick={() => {
-                navigator.clipboard.writeText(`https://api.tenniscourt-booking.com/v1/webhook/otp/callback`);
-                alert('คัดลอกลิงก์แล้ว');
-              }}
-            >
-              Copy
-            </button>
+      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: '16px', padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.85rem', color: '#666', textTransform: 'uppercase', fontWeight: '700', marginBottom: '8px' }}>PHP OPcache</div>
+            <div style={{ fontSize: '1rem', fontWeight: '700', color: '#1a1a3a', wordBreak: 'break-word' }}>Clear cached PHP bytecode on the server</div>
+            <p style={{ margin: '10px 0 0', color: '#666', fontSize: '0.85rem', lineHeight: 1.6 }}>
+              ใช้หลังอัปไฟล์ PHP ใหม่เพื่อให้เซิร์ฟเวอร์โหลดเวอร์ชันล่าสุดทันที Action นี้ต้อง login เป็น admin และจะถูกบันทึกลง audit log
+            </p>
+            {opcacheMessage ? (
+              <p style={{ margin: '12px 0 0', color: '#157347', fontSize: '0.85rem', fontWeight: '700' }}>{opcacheMessage}</p>
+            ) : null}
+            {opcacheError ? (
+              <p style={{ margin: '12px 0 0', color: '#b02a37', fontSize: '0.85rem', fontWeight: '700' }}>{opcacheError}</p>
+            ) : null}
           </div>
-          <p style={{ fontSize: '0.75rem', color: '#666' }}>* นำลิงก์นี้ไปใส่ในหน้าตั้งค่า Webhook ของฝั่งผู้ให้บริการ SMS ของคุณ</p>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void handleClearOpcache()}
+            disabled={isClearingOpcache}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', width: 'auto', padding: '10px 14px' }}
+          >
+            <RotateCcw size={16} /> {isClearingOpcache ? 'Clearing...' : 'Clear OPcache'}
+          </button>
         </div>
-        
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Webhook URL 
-            <div 
-              title="ช่องทาง SMS สามารถใช้ได้เพียง Method GET ช่องทาง Email สามารถใช้ได้ Method GET หรือ POST ได้"
-              style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e3f2fd', color: '#1e88e5', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'help', fontSize: '0.75rem' }}
-            >?</div>
-          </label>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <input 
-              type="text" 
-              placeholder="ระบุ URL"
-              value={apiSettings.otpWebhookUrl}
-              onChange={(e) => onUpdateSettings({ ...apiSettings, otpWebhookUrl: e.target.value })}
-              style={{ flex: 1 }}
-            />
-            <select 
-              value={apiSettings.otpMethod}
-              onChange={(e) => onUpdateSettings({ ...apiSettings, otpMethod: e.target.value })}
-              style={{ width: '120px' }}
-            >
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-            </select>
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: '16px', padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.85rem', color: '#666', textTransform: 'uppercase', fontWeight: '700', marginBottom: '8px' }}>Mail Logs</div>
+            <div style={{ fontSize: '1rem', fontWeight: '700', color: '#1a1a3a', wordBreak: 'break-word' }}>Check SMTP delivery logs for booking confirmation emails</div>
+            <p style={{ margin: '10px 0 0', color: '#666', fontSize: '0.85rem', lineHeight: 1.6 }}>
+              ใช้ดูว่าเมลไม่ออกเพราะ config ไม่ครบ, ต่อ SMTP ไม่ได้, login ไม่ผ่าน หรือผู้รับถูก reject โดยระบบจะไม่แสดงรหัสผ่านใน log
+            </p>
           </div>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void handleLoadMailLogs()}
+            disabled={isLoadingMailLogs}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', width: 'auto', padding: '10px 14px' }}
+          >
+            <Mail size={16} /> {isLoadingMailLogs ? 'Loading...' : 'Load Mail Logs'}
+          </button>
         </div>
 
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>API Key</label>
-          <input 
-            type="text" 
-            placeholder="ระบุ API Key"
-            value={apiSettings.otpApiKey}
-            onChange={(e) => onUpdateSettings({ ...apiSettings, otpApiKey: e.target.value })}
-          />
-        </div>
+        {mailLogError ? (
+          <p style={{ margin: '0 0 16px', color: '#b02a37', fontSize: '0.85rem', fontWeight: '700' }}>{mailLogError}</p>
+        ) : null}
 
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>API Secret</label>
-          <input 
-            type="password" 
-            placeholder="ระบุ API Secret"
-            value={apiSettings.otpApiSecret}
-            onChange={(e) => onUpdateSettings({ ...apiSettings, otpApiSecret: e.target.value })}
-          />
-        </div>
+        {!mailLogs.length && !mailLogError ? (
+          <div style={{ borderRadius: '14px', background: '#fafafa', border: '1px dashed #ddd', padding: '16px', color: '#666', fontSize: '0.9rem' }}>
+            ยังไม่มี mail log แสดงอยู่ กดปุ่มด้านบนเพื่อโหลดรายการล่าสุดจาก server
+          </div>
+        ) : null}
 
-        <div style={{ padding: '12px', background: '#fff3e0', color: '#ef6c00', borderRadius: '8px', fontSize: '0.85rem', marginTop: '20px' }}>
-          <strong>💳 Payment API (Omise)</strong>
-          <p style={{ marginTop: '4px', fontSize: '0.75rem' }}>สมัครที่ dashboard.omise.co เพื่อรับ keys</p>
-        </div>
+        {mailLogs.length ? (
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {mailLogs.map((entry, index) => {
+              const isSuccess = entry.level === 'SUCCESS'
+              const isError = entry.level === 'ERROR'
 
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>Omise Public Key <span style={{ color: '#aaa', fontSize: '0.75rem' }}>(pkey_...)</span></label>
-          <input type="text" placeholder="pkey_test_xxxxxxxxxxxxxxxx" value={apiSettings.omisePublicKey || ''} onChange={(e) => onUpdateSettings({ ...apiSettings, omisePublicKey: e.target.value })} />
-        </div>
+              return (
+                <div
+                  key={`${entry.timestamp || 'log'}-${index}`}
+                  style={{
+                    border: '1px solid #eee',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    background: isError ? '#fff5f5' : isSuccess ? '#f3fff8' : '#fafcff',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#1a1a3a' }}>{entry.message || 'Mail log'}</strong>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      padding: '4px 8px',
+                      borderRadius: '999px',
+                      background: isError ? '#f8d7da' : isSuccess ? '#d1e7dd' : '#e7f1ff',
+                      color: isError ? '#842029' : isSuccess ? '#0f5132' : '#0a58ca',
+                    }}>
+                      {entry.level || 'INFO'}
+                    </span>
+                  </div>
 
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>Omise Secret Key <span style={{ color: '#aaa', fontSize: '0.75rem' }}>(skey_...)</span></label>
-          <input type="password" placeholder="skey_test_xxxxxxxxxxxxxxxx" value={apiSettings.omiseSecretKey || ''} onChange={(e) => onUpdateSettings({ ...apiSettings, omiseSecretKey: e.target.value })} />
-        </div>
+                  <div style={{ color: '#666', fontSize: '0.8rem', marginBottom: '8px' }}>{entry.timestamp || '-'}</div>
 
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>Omise Webhook Secret</label>
-          <input type="password" placeholder="whsec_xxxxxxxxxxxxxxxx" value={apiSettings.omiseWebhookSecret || ''} onChange={(e) => onUpdateSettings({ ...apiSettings, omiseWebhookSecret: e.target.value })} />
-          <p style={{ fontSize: '0.75rem', color: '#666' }}>Webhook URL ของระบบ: <code>https://scaleup.co.th/court/api/webhook.php</code></p>
-        </div>
-
-        <div style={{ padding: '12px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '8px', fontSize: '0.85rem', marginTop: '4px' }}>
-          <strong>📱 SMS (Thaibulksms)</strong>
-          <p style={{ marginTop: '4px', fontSize: '0.75rem' }}>สมัครที่ thaibulksms.com — 0.15 บาท/ข้อความ</p>
-        </div>
-
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>SMS API Key</label>
-          <input type="text" placeholder="YOUR_SMS_KEY" value={apiSettings.smsApiKey || ''} onChange={(e) => onUpdateSettings({ ...apiSettings, smsApiKey: e.target.value })} />
-        </div>
-
-        <div className="flex-col gap-sm">
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>SMS API Secret</label>
-          <input type="password" placeholder="YOUR_SMS_SECRET" value={apiSettings.smsApiSecret || ''} onChange={(e) => onUpdateSettings({ ...apiSettings, smsApiSecret: e.target.value })} />
-        </div>
-
-        <div style={{ borderTop: '1px solid #eee', paddingTop: '20px', marginTop: '20px' }}>
-          <label style={{ fontSize: '0.9rem', color: '#333' }}>Change Setting Password</label>
-          <input type="text" value={apiSettings.adminPassword} onChange={(e) => onUpdateSettings({ ...apiSettings, adminPassword: e.target.value })} style={{ width: '100%', marginTop: '8px' }} />
-        </div>
-
-        <button className="premium-button" onClick={() => setIsSettingsUnlocked(false)}>ล็อคการเข้าถึง</button>
+                  {entry.context ? (
+                    <pre style={{
+                      margin: 0,
+                      fontSize: '0.78rem',
+                      lineHeight: 1.5,
+                      background: 'rgba(255,255,255,0.8)',
+                      borderRadius: '10px',
+                      padding: '12px',
+                      overflowX: 'auto',
+                      color: '#334',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}>
+                      {JSON.stringify(entry.context, null, 2)}
+                    </pre>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        ) : null}
       </div>
     </div>
   )

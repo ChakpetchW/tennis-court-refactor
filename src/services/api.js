@@ -3,228 +3,151 @@
  * Centralizes all fetch calls to the PHP backend.
  */
 
-const BASE_URL = 'api/main_api.php';
-const OMISE_TOPUP_URL = import.meta.env.VITE_OMISE_TOPUP_URL || 'api/omise_topup.php';
-const OMISE_CHARGE_URL = import.meta.env.VITE_OMISE_CHARGE_URL || 'api/omise_charge.php';
+const BASE_URL = 'api/main_api.php'
+const OMISE_TOPUP_URL = import.meta.env.VITE_OMISE_TOPUP_URL || 'api/omise_topup.php'
+const OMISE_CHARGE_URL = import.meta.env.VITE_OMISE_CHARGE_URL || 'api/omise_charge.php'
+
+const request = (url, options = {}) =>
+  fetch(url, {
+    credentials: 'same-origin',
+    ...options,
+  })
 
 const handleResponse = async (response) => {
+  let data = null
+
+  try {
+    data = await response.json()
+  } catch {
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`)
+    }
+  }
+
   if (!response.ok) {
-    throw new Error(`API Error: ${response.statusText}`);
+    throw new Error(data?.error || `API Error: ${response.statusText}`)
   }
-  const data = await response.json();
-  if (data.error) {
-    throw new Error(data.error);
+
+  if (data?.error) {
+    throw new Error(data.error)
   }
-  return data;
-};
+
+  return data
+}
+
+const postJson = (url, payload) =>
+  request(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
 
 export const api = {
-  // --- Auth & Profile ---
-  login: async (phone) => {
-    const res = await fetch(BASE_URL + '?action=login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone })
-    });
-    return handleResponse(res);
-  },
+  login: async (phone) => handleResponse(await postJson(`${BASE_URL}?action=login`, { phone })),
 
-  loginById: async (userId) => {
-    const res = await fetch(`${BASE_URL}?action=login_by_id&id=${userId}&t=${Date.now()}`);
-    return handleResponse(res);
-  },
+  loginById: async (userId) =>
+    handleResponse(await request(`${BASE_URL}?action=login_by_id&id=${userId}&t=${Date.now()}`)),
 
-  register: async (userData) => {
-    const res = await fetch(BASE_URL + '?action=register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData)
-    });
-    return handleResponse(res);
-  },
+  register: async (userData) =>
+    handleResponse(await postJson(`${BASE_URL}?action=register`, userData)),
 
-  getProfile: async (userId) => {
-    const res = await fetch(`${BASE_URL}?action=get_profile&user_id=${userId}&t=${Date.now()}`);
-    return handleResponse(res);
-  },
+  getProfile: async (userId) =>
+    handleResponse(await request(`${BASE_URL}?action=get_profile&user_id=${userId}&t=${Date.now()}`)),
 
-  // --- Wallet ---
-  getWalletBalance: async (userId, phone) => {
-    const res = await fetch(BASE_URL + '?action=get_wallet', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, phone })
-    });
-    return handleResponse(res);
-  },
+  getWalletBalance: async (userId, phone) =>
+    handleResponse(await postJson(`${BASE_URL}?action=get_wallet`, { user_id: userId, phone })),
 
-  topupWallet: async (userId, phone, amount) => {
-    const res = await fetch(BASE_URL + '?action=topup_wallet', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, phone, amount })
-    });
-    return handleResponse(res);
-  },
+  topupWallet: async (userId, phone, amount) =>
+    handleResponse(await postJson(`${BASE_URL}?action=topup_wallet`, { user_id: userId, phone, amount })),
 
-  checkTopupStatus: async (chargeId) => {
-    const res = await fetch(`${BASE_URL}?action=check_topup_status&charge_id=${chargeId}&t=${Date.now()}`);
-    return handleResponse(res);
-  },
-  
-  initiateOmiseTopup: async (userId, amount, type, card = null) => {
-    const res = await fetch(OMISE_TOPUP_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, amount, type, card })
-    });
-    return handleResponse(res);
-  },
+  checkTopupStatus: async (chargeId) =>
+    handleResponse(await request(`${BASE_URL}?action=check_topup_status&charge_id=${chargeId}&t=${Date.now()}`)),
 
-  // --- Court & Booking ---
-  getCourts: async () => {
-    const res = await fetch(`${BASE_URL}?action=get_rates&t=${Date.now()}`);
-    return handleResponse(res);
-  },
+  initiateOmiseTopup: async (userId, amount, type, card = null) =>
+    handleResponse(
+      await postJson(OMISE_TOPUP_URL, { user_id: userId, amount, type, card }),
+    ),
 
-  getAllStatus: async (date) => {
-    const res = await fetch(`${BASE_URL}?action=get_all_status&date=${date}&t=${Date.now()}`);
-    return handleResponse(res);
-  },
+  getCourts: async () => handleResponse(await request(`${BASE_URL}?action=get_rates&t=${Date.now()}`)),
 
-  setPending: async (userId, courtId, date, hour, price) => {
-    const res = await fetch(BASE_URL + '?action=set_pending', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, court_id: courtId, date, hour, price })
-    });
-    return handleResponse(res);
-  },
+  getAllStatus: async (date) =>
+    handleResponse(await request(`${BASE_URL}?action=get_all_status&date=${date}&t=${Date.now()}`)),
 
-  clearPending: async (courtId, date, hour) => {
-    const res = await fetch(BASE_URL + '?action=clear_pending', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ court_id: courtId, date, hour })
-    });
-    return handleResponse(res);
-  },
+  setPending: async (userId, courtId, date, hour, price) =>
+    handleResponse(
+      await postJson(`${BASE_URL}?action=set_pending`, { user_id: userId, court_id: courtId, date, hour, price }),
+    ),
 
-  confirmBooking: async (bookingData) => {
-    const res = await fetch(BASE_URL + '?action=confirm_booking', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bookingData)
-    });
-    return handleResponse(res);
-  },
+  clearPending: async (courtId, date, hour) =>
+    handleResponse(await postJson(`${BASE_URL}?action=clear_pending`, { court_id: courtId, date, hour })),
 
-  toggleAllotment: async (courtId, date, hour) => {
-    const res = await fetch(BASE_URL + '?action=toggle_allotment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ court_id: courtId, date, hour })
-    });
-    return handleResponse(res);
-  },
+  confirmBooking: async (bookingData) =>
+    handleResponse(await postJson(`${BASE_URL}?action=confirm_booking`, bookingData)),
 
-  processWalletPayment: async (paymentData) => {
-    const res = await fetch(BASE_URL + '?action=process_payment_wallet', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(paymentData)
-    });
-    return handleResponse(res);
-  },
+  toggleAllotment: async (courtId, date, hour) =>
+    handleResponse(await postJson(`${BASE_URL}?action=toggle_allotment`, { court_id: courtId, date, hour })),
 
-  // --- History ---
-  getUserHistory: async (userId) => {
-    const res = await fetch(`${BASE_URL}?action=get_user_history&user_id=${userId}&t=${Date.now()}`);
-    return handleResponse(res);
-  },
+  processWalletPayment: async (paymentData) =>
+    handleResponse(await postJson(`${BASE_URL}?action=process_payment_wallet`, paymentData)),
 
-  deleteBooking: async (id) => {
-    const res = await fetch(`${BASE_URL}?action=delete_booking&id=${id}`);
-    return handleResponse(res);
-  },
+  getUserHistory: async (userId) =>
+    handleResponse(await request(`${BASE_URL}?action=get_user_history&user_id=${userId}&t=${Date.now()}`)),
 
-  // --- Admin ---
-  adminLogin: async (email, password) => {
-    const res = await fetch(BASE_URL + '?action=admin_login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    return handleResponse(res);
-  },
+  deleteBooking: async (id) =>
+    handleResponse(await request(`${BASE_URL}?action=delete_booking&id=${id}`)),
 
-  getAdminBookings: async (date) => {
-    const res = await fetch(`${BASE_URL}?action=get_admin_bookings&date=${date}`);
-    return handleResponse(res);
-  },
+  adminLogin: async (email, password) =>
+    handleResponse(await postJson(`${BASE_URL}?action=admin_login`, { email, password })),
 
-  updateCourtRate: async (id, rate) => {
-    const res = await fetch(BASE_URL + '?action=update_rate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, rate })
-    });
-    return handleResponse(res);
-  },
+  getAdminSession: async () =>
+    handleResponse(await request(`${BASE_URL}?action=admin_session&t=${Date.now()}`)),
 
-  adminDeleteBooking: async (bookingId, password, adminName) => {
-    const res = await fetch(BASE_URL + '?action=admin_delete_booking', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ booking_id: bookingId, password, admin_name: adminName })
-    });
-    return handleResponse(res);
-  },
+  adminLogout: async () =>
+    handleResponse(await postJson(`${BASE_URL}?action=admin_logout`, {})),
+
+  clearOpcache: async () =>
+    handleResponse(await postJson(`${BASE_URL}?action=clear_opcache`, {})),
+
+  getMailLogs: async () =>
+    handleResponse(await request(`${BASE_URL}?action=get_mail_logs&t=${Date.now()}`)),
+
+  getAdminBookings: async (date) =>
+    handleResponse(await request(`${BASE_URL}?action=get_admin_bookings&date=${date}&t=${Date.now()}`)),
+
+  updateCourtRate: async (id, rate) =>
+    handleResponse(await postJson(`${BASE_URL}?action=update_rate`, { id, rate })),
+
+  adminDeleteBooking: async (bookingId) =>
+    handleResponse(await postJson(`${BASE_URL}?action=admin_delete_booking`, { booking_id: bookingId })),
 
   getAuditLogs: async (date) => {
-    // Add cache buster and ensure date is clean
-    const t = Date.now();
-    const url = date ? `${BASE_URL}?action=get_audit_logs&date=${date}&t=${t}` : `${BASE_URL}?action=get_audit_logs&t=${t}`;
-    const res = await fetch(url);
-    return handleResponse(res);
+    const timestamp = Date.now()
+    const url = date
+      ? `${BASE_URL}?action=get_audit_logs&date=${date}&t=${timestamp}`
+      : `${BASE_URL}?action=get_audit_logs&t=${timestamp}`
+    return handleResponse(await request(url))
   },
+
   getWalletTransactions: async (date) => {
-    const t = Date.now();
-    const url = date ? `${BASE_URL}?action=get_wallet_transactions&date=${date}&t=${t}` : `${BASE_URL}?action=get_wallet_transactions&t=${t}`;
-    const res = await fetch(url);
-    return handleResponse(res);
+    const timestamp = Date.now()
+    const url = date
+      ? `${BASE_URL}?action=get_wallet_transactions&date=${date}&t=${timestamp}`
+      : `${BASE_URL}?action=get_wallet_transactions&t=${timestamp}`
+    return handleResponse(await request(url))
   },
 
-  requestOTP: async (phone, apiSettings) => {
-    if (!apiSettings?.otpWebhookUrl) return { success: true, simulated: true };
-    
-    const res = await fetch(`${apiSettings.otpWebhookUrl}?phone=${encodeURIComponent(phone)}`, { 
-      method: apiSettings.otpMethod,
-      headers: {
-        'X-API-Key': apiSettings.otpApiKey,
-        'X-API-Secret': apiSettings.otpApiSecret
-      }
-    });
-    // Webhooks might not return standard JSON or might have CORS issues, 
-    // but we try to handle it gracefully for the service pattern.
-    return res.ok ? { success: true } : { success: false };
-  },
+  requestOTP: async (phone) =>
+    handleResponse(await postJson(`${BASE_URL}?action=request_otp`, { phone })),
 
-  checkPaymentStatus: async (bookingId, chargeId) => {
-    const res = await fetch(`${BASE_URL}?action=check_payment_status&id=${bookingId}&ref=${chargeId}&t=${Date.now()}`);
-    return handleResponse(res);
-  },
+  verifyOTP: async (phone, pin) =>
+    handleResponse(await postJson(`${BASE_URL}?action=verify_otp`, { phone, pin })),
 
-  createOmiseCharge: async (paymentData) => {
-    const res = await fetch(OMISE_CHARGE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(paymentData)
-    });
-    return handleResponse(res);
-  },
-  getVersion: async () => {
-    const res = await fetch(`${BASE_URL}?action=version&t=${Date.now()}`);
-    return handleResponse(res);
-  }
-};
+  checkPaymentStatus: async (bookingId, chargeId) =>
+    handleResponse(await request(`${BASE_URL}?action=check_payment_status&id=${bookingId}&ref=${chargeId}&t=${Date.now()}`)),
+
+  createOmiseCharge: async (paymentData) =>
+    handleResponse(await postJson(OMISE_CHARGE_URL, paymentData)),
+
+  getVersion: async () =>
+    handleResponse(await request(`${BASE_URL}?action=version&t=${Date.now()}`)),
+}
