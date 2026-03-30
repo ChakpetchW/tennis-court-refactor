@@ -156,8 +156,18 @@ if ($chargeRes['status'] === 'successful') {
 }
 
 // Save charge to DB
-$stmt = $conn->prepare("UPDATE bookings SET payment_provider=?, transaction_ref=?, status=? WHERE id=?");
-$stmt->execute([$paymentProvider, $chargeRes['id'], $status, $booking_id]);
+$stmt = $conn->prepare("
+    UPDATE bookings
+    SET payment_provider=?,
+        transaction_ref=?,
+        status=?,
+        paid_at = CASE
+            WHEN ? = 'Paid' THEN COALESCE(paid_at, NOW())
+            ELSE paid_at
+        END
+    WHERE id=?
+");
+$stmt->execute([$paymentProvider, $chargeRes['id'], $status, $status, $booking_id]);
 
 if ($status === 'Paid') {
     $stmt = $conn->prepare("

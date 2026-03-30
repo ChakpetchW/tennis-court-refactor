@@ -121,7 +121,7 @@ if ($key === 'charge.complete' && ($data['status'] ?? '') === 'successful') {
 
     if ($booking) {
         // Mark booking as Paid
-        $conn->prepare("UPDATE bookings SET status='Paid', transaction_ref=? WHERE id=?")
+        $conn->prepare("UPDATE bookings SET status='Paid', transaction_ref=?, paid_at=COALESCE(paid_at, NOW()) WHERE id=?")
              ->execute([$chargeId, $bookingId]);
 
         // Update Allotment: Ensure it's marked as booked by the real customer name

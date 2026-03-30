@@ -64,6 +64,7 @@ $ensureColumn('bookings', 'refund_amount', 'DECIMAL(10,2) NULL DEFAULT NULL');
 $ensureColumn('bookings', 'refund_reference', 'VARCHAR(255) NULL');
 $ensureColumn('bookings', 'refunded_at', 'DATETIME NULL');
 $ensureColumn('bookings', 'refunded_via', 'VARCHAR(50) NULL');
+$ensureColumn('bookings', 'paid_at', 'DATETIME NULL');
 
 $normalizePhoneForOtp = function ($phone) {
     $digits = preg_replace('/\D+/', '', (string) $phone);
@@ -981,7 +982,7 @@ switch($requestedAction) {
             if ($isSuccessful || $isPaid) {
                 file_put_contents($logFile, "  => SUCCESS! Healing record to Paid.\n", FILE_APPEND);
                 // Update Booking Status
-                $conn->prepare("UPDATE bookings SET status='Paid', transaction_ref=? WHERE id=?")
+                $conn->prepare("UPDATE bookings SET status='Paid', transaction_ref=?, paid_at=COALESCE(paid_at, NOW()) WHERE id=?")
                      ->execute([$chargeId, $row['id']]);
                 
                 // Update Allotment (Booked status)
@@ -1000,6 +1001,7 @@ switch($requestedAction) {
 
                 $row['status'] = 'Paid';
                 $row['transaction_ref'] = $chargeId;
+                $row['paid_at'] = $row['paid_at'] ?? date('Y-m-d H:i:s');
 
                 $notificationStmt = $conn->prepare("
                     SELECT
@@ -1088,11 +1090,11 @@ switch($requestedAction) {
 
         // 2. Update existing booking if ID is provided, else insert new one
         if (isset($data->booking_id)) {
-            $stmt = $conn->prepare("UPDATE bookings SET status='Paid', payment_provider=? WHERE id=?");
+            $stmt = $conn->prepare("UPDATE bookings SET status='Paid', payment_provider=?, paid_at=COALESCE(paid_at, NOW()) WHERE id=?");
             $stmt->execute([$data->payment_provider ?? 'manual', $data->booking_id]);
             $confirmedBookingId = (int) $data->booking_id;
         } else {
-            $stmt = $conn->prepare("INSERT INTO bookings (user_id, court_id, booking_date, booking_time, price, status, payment_provider) VALUES (?, ?, ?, ?, ?, 'Paid', ?)");
+            $stmt = $conn->prepare("INSERT INTO bookings (user_id, court_id, booking_date, booking_time, price, status, payment_provider, paid_at) VALUES (?, ?, ?, ?, ?, 'Paid', ?, NOW())");
             $stmt->execute([$data->user_id, $data->court_id, $data->date, $data->hour, $data->price, $data->payment_provider ?? 'manual']);
             $confirmedBookingId = (int) $conn->lastInsertId();
         }
@@ -1156,6 +1158,7 @@ switch($requestedAction) {
             LEFT JOIN courts c ON b.court_id = c.id 
             LEFT JOIN users u ON b.user_id = u.id
             WHERE b.user_id = ?
+              AND LOWER(COALESCE(b.status, '')) IN ('paid', 'successful', 'success', 'confirmed')
             ORDER BY b.created_at DESC
         ");
         $stmt->execute([$userId]);
@@ -1310,10 +1313,10 @@ switch($requestedAction) {
 
             // 3. Update or Insert booking
             if ($bookingId) {
-                $stmt = $conn->prepare("UPDATE bookings SET status='Paid', payment_provider='wallet' WHERE id=?");
+                $stmt = $conn->prepare("UPDATE bookings SET status='Paid', payment_provider='wallet', paid_at=COALESCE(paid_at, NOW()) WHERE id=?");
                 $stmt->execute([$bookingId]);
             } else {
-                $stmt = $conn->prepare("INSERT INTO bookings (user_id, court_id, booking_date, booking_time, price, status, payment_provider) VALUES (?, ?, ?, ?, ?, 'Paid', 'wallet')");
+                $stmt = $conn->prepare("INSERT INTO bookings (user_id, court_id, booking_date, booking_time, price, status, payment_provider, paid_at) VALUES (?, ?, ?, ?, ?, 'Paid', 'wallet', NOW())");
                 $stmt->execute([$userId, $data->court_id, $data->date, $data->hour, $amount]);
                 $bookingId = $conn->lastInsertId();
             }

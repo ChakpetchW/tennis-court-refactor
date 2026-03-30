@@ -40,7 +40,13 @@ export const AppProvider = ({ children }) => {
     try {
       const data = await api.getUserHistory(userId)
       if (Array.isArray(data)) {
-        setUserHistory(data)
+        setUserHistory(
+          data.filter((booking) =>
+            ['paid', 'successful', 'success', 'confirmed'].includes(
+              (booking.status || '').toString().trim().toLowerCase(),
+            ),
+          ),
+        )
       }
     } catch (error) {
       console.error('Fetch history error:', error)
