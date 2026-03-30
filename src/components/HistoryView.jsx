@@ -29,47 +29,49 @@ const formatBookingStatus = (booking) => {
       return {
         label: 'คืนเงินแล้ว',
         subLabel: 'REFUNDED',
-        bg: '#eaf4fb',
-        color: '#2475b8',
-        amountColor: '#6b7280',
+        bg: 'var(--status-info-bg)',
+        color: 'var(--status-info)',
+        amountColor: 'var(--text-muted)',
       }
     }
-
+ 
     if (refundStatus === 'refund pending') {
       return {
         label: 'รอคืนเงิน',
         subLabel: 'REFUND PENDING',
-        bg: '#fff4e6',
-        color: '#c76b00',
-        amountColor: '#6b7280',
+        bg: 'var(--status-warning-bg)',
+        color: 'var(--status-warning)',
+        amountColor: 'var(--text-muted)',
       }
     }
-
+ 
     return {
       label: 'ยกเลิกแล้ว',
       subLabel: 'CANCELLED',
-      bg: '#fbeaea',
-      color: '#d64545',
-      amountColor: '#6b7280',
+      bg: 'var(--status-error-bg)',
+      color: 'var(--status-error)',
+      amountColor: 'var(--text-muted)',
     }
   }
-
+ 
   if (status === 'paid' || status === 'successful' || status === 'success' || status === 'confirmed') {
     return {
       label: 'ชำระแล้ว',
       subLabel: 'PAID',
-      bg: '#e6faf5',
-      color: '#00a67e',
-      amountColor: '#00a67e',
+      bg: 'var(--status-success-bg)',
+      color: 'var(--status-success)',
+      amountColor: 'var(--status-success)',
+      border: 'var(--status-success)'
     }
   }
-
+ 
   return {
     label: 'รอชำระ',
     subLabel: 'PENDING',
-    bg: '#fef5e7',
-    color: '#d68910',
-    amountColor: '#4b5563',
+    bg: 'var(--status-warning-bg)',
+    color: 'var(--status-warning)',
+    amountColor: 'var(--text-secondary)',
+    border: 'var(--status-warning)'
   }
 }
 
@@ -117,7 +119,7 @@ const formatDateTimeDisplay = (value) => {
 const HistoryView = ({ onBack }) => {
   const { userHistory } = useApp()
   const [currentPage, setCurrentPage] = useState(1)
-  const [monthFilter, setMonthFilter] = useState('all')
+  const [monthFilter, setMonthFilter] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'))
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear())
 
   useEffect(() => {
@@ -165,9 +167,56 @@ const HistoryView = ({ onBack }) => {
     }
   }, [currentPage, totalPages])
 
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+    return (
+      <div className="history-pagination" style={{ margin: 'var(--space-md) 0' }}>
+        <button
+          disabled={safePage === 1}
+          onClick={() => setCurrentPage((prev) => prev - 1)}
+          aria-label="หน้าก่อนหน้า (Previous Page)"
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            cursor: safePage === 1 ? 'default' : 'pointer', 
+            color: safePage === 1 ? '#ccc' : 'var(--accent-primary)',
+            width: '44px',
+            height: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <ChevronLeft size={24} />
+        </button>
+        <div style={{ fontSize: '1rem', fontWeight: '800', color: '#333' }}>
+          หน้า {safePage} / {totalPages}
+        </div>
+        <button
+          disabled={safePage === totalPages}
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+          aria-label="หน้าถัดไป (Next Page)"
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            cursor: safePage === totalPages ? 'default' : 'pointer', 
+            color: safePage === totalPages ? '#ccc' : 'var(--accent-primary)',
+            width: '44px',
+            height: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <ChevronRight size={24} />
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="container fade-in" style={{ maxWidth: '760px', paddingBottom: '100px' }}>
-      <div className="glass-card flex-col gap-md" style={{ background: '#fff', padding: '32px' }}>
+    <div className="container fade-in" style={{ maxWidth: '760px', paddingBottom: 'var(--space-2xl)' }}>
+      <div className="glass-card flex-col gap-md" style={{ background: 'var(--bg-primary)', padding: 'var(--space-xl)' }}>
         <div
           style={{
             display: 'flex',
@@ -237,6 +286,7 @@ const HistoryView = ({ onBack }) => {
           </div>
         ) : (
           <>
+            {renderPagination()}
             <div className="flex-col gap-md">
               {currentRecords.map((booking, index) => {
                 const statusPresentation = formatBookingStatus(booking)
@@ -247,8 +297,17 @@ const HistoryView = ({ onBack }) => {
                   <div
                     key={booking.id || index}
                     className="glass-card history-record-card"
-                    style={{ background: '#fff', border: '1px solid #f0f0f0', padding: '20px', borderRadius: '18px' }}
+                    style={{ 
+                      background: 'var(--bg-primary)', 
+                      border: '1px solid var(--glass-border)', 
+                      padding: 'var(--space-md)', 
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
                   >
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: statusPresentation.color }} />
                     <div className="history-record-header">
                       <div className="history-record-main">
                         <div style={{ fontSize: '1.22rem', fontWeight: '800', color: '#1a1a3a' }}>
@@ -340,28 +399,7 @@ const HistoryView = ({ onBack }) => {
                 )
               })}
             </div>
-
-            {totalPages > 1 && (
-              <div className="history-pagination">
-                <button
-                  disabled={safePage === 1}
-                  onClick={() => setCurrentPage((prev) => prev - 1)}
-                  style={{ background: 'none', border: 'none', cursor: safePage === 1 ? 'default' : 'pointer', color: safePage === 1 ? '#ccc' : 'var(--accent-primary)' }}
-                >
-                  <ChevronLeft size={24} />
-                </button>
-                <div style={{ fontSize: '1rem', fontWeight: '800', color: '#333' }}>
-                  หน้า {safePage} / {totalPages}
-                </div>
-                <button
-                  disabled={safePage === totalPages}
-                  onClick={() => setCurrentPage((prev) => prev + 1)}
-                  style={{ background: 'none', border: 'none', cursor: safePage === totalPages ? 'default' : 'pointer', color: safePage === totalPages ? '#ccc' : 'var(--accent-primary)' }}
-                >
-                  <ChevronRight size={24} />
-                </button>
-              </div>
-            )}
+            {renderPagination()}
           </>
         )}
 

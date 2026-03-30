@@ -30,11 +30,10 @@ export const BookingProvider = ({ children }) => {
 
     try {
       const data = await api.getAllStatus(date)
+      const normalizedData = Array.isArray(data) ? data : []
       setCourts((prev) =>
         prev.map((court) => {
-          const courtAllotments = Array.isArray(data)
-            ? data.filter((allotment) => Number.parseInt(allotment.court_id, 10) === court.id)
-            : []
+          const courtAllotments = normalizedData.filter((allotment) => Number.parseInt(allotment.court_id, 10) === court.id)
 
           return {
             ...court,
@@ -52,8 +51,10 @@ export const BookingProvider = ({ children }) => {
           }
         }),
       )
+      return normalizedData
     } catch (error) {
       console.warn('Fetch status error:', error)
+      return []
     }
   }, [])
 

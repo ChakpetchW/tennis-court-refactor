@@ -3,14 +3,53 @@
 :root {
   /* Color Palette - Elegant Tennis Theme */
   --bg-primary: #ffffff;
-  --bg-secondary: #fbfbfb; /* Pearl White */
+  /* Pearl White with subtle Mint tint for warmth */
+  --bg-secondary: #f4f9f4; 
   --accent-primary: #1b5e20; /* Emerald Green CI */
   --accent-secondary: #d4ff00; /* Tennis Ball Yellow */
   --accent-court: #f1f8e9;
+  --accent-glow: rgba(212, 255, 0, 0.3);
+  
+  /* Brand Gradients - Modern Performance */
+  --gradient-brand: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+  --gradient-mesh: radial-gradient(at 0% 0%, rgba(212, 255, 0, 0.15) 0px, transparent 50%),
+                   radial-gradient(at 100% 100%, rgba(27, 94, 32, 0.1) 0px, transparent 50%);
+  --gradient-success-glow: radial-gradient(circle at center, var(--status-success-bg) 0%, #ffffff 100%);
+  
   --text-primary: #1a1a1a;
-  --text-secondary: #666666;
+  --text-secondary: #555555;
+  --text-muted: #6b6b6b;
+  
+  /* Status Colors */
+  --status-success: #00a67e;
+  --status-success-bg: #e6faf5;
+  --status-error: #d64545;
+  --status-error-bg: #fbeaea;
+  --status-warning: #d68910;
+  --status-warning-bg: #fef5e7;
+  --status-info: #2475b8;
+  --status-info-bg: #eaf4fb;
+
+  /* Spacing Scale */
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  
+  /* Typography Scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  
   --glass-bg: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border: rgba(0, 0, 0, 0.1);
   --glass-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
   
   /* Spacing & Borders */
@@ -21,7 +60,7 @@
   
   /* Fonts */
   --font-heading: 'Outfit', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-body: 'Outfit', sans-serif;
   --font-th: 'Kanit', sans-serif;
   
   font-family: var(--font-th), var(--font-body);
@@ -104,9 +143,9 @@ input, select, textarea {
   }
 }
 
-input:focus {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.2);
+input:focus, button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.2), 0 0 0 1px var(--accent-primary);
 }
 
 input[type="checkbox"] {
@@ -211,6 +250,17 @@ input[type="date"]::-webkit-outer-spin-button {
 
 .fade-in {
   animation: fadeIn 0.5s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @keyframes spin {
@@ -1300,7 +1350,7 @@ input[type="date"]::-webkit-outer-spin-button {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #7a8680;
+  color: #5a635f;
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -1334,7 +1384,7 @@ input[type="date"]::-webkit-outer-spin-button {
 
 .history-id-label {
   display: block;
-  color: #8b97a1;
+  color: #59636d;
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -1369,7 +1419,7 @@ input[type="date"]::-webkit-outer-spin-button {
 }
 
 .history-amount-label {
-  color: #8b97a1;
+  color: #59636d;
   font-size: 0.76rem;
   font-weight: 700;
   text-transform: uppercase;

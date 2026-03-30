@@ -44,6 +44,60 @@ try {
     echo json_encode(['error' => 'DB: ' . $e->getMessage()]); exit;
 }
 
+$validateSlotAvailability = function ($courtId, $date, $hour, ?int $excludeBookingId = null) use ($conn) {
+    $stmt = $conn->prepare("
+        SELECT is_open, booked_by
+        FROM allotments
+        WHERE court_id = ? AND date = ? AND hour = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$courtId, $date, $hour]);
+    $allotment = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($allotment) {
+        $isOpen = $allotment['is_open'] === null || (int) $allotment['is_open'] === 1;
+        $bookedBy = trim((string) ($allotment['booked_by'] ?? ''));
+
+        if (!$isOpen && $bookedBy === '') {
+            return 'This time slot has been closed by admin.';
+        }
+
+        if ($bookedBy !== '') {
+            return 'This time slot is no longer available.';
+        }
+    }
+
+    $sql = "
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE court_id = ?
+          AND booking_date = ?
+          AND booking_time = ?
+          AND LOWER(COALESCE(status, '')) IN ('paid', 'successful', 'success', 'confirmed')
+    ";
+    $params = [$courtId, $date, $hour];
+
+    if ($excludeBookingId !== null) {
+        $sql .= " AND id <> ?";
+        $params[] = $excludeBookingId;
+    }
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($params);
+
+    if ((int) $stmt->fetchColumn() > 0) {
+        return 'This time slot has already been booked.';
+    }
+
+    return null;
+};
+
+$slotError = $validateSlotAvailability($court_id, $date, $hour, $booking_id ? (int) $booking_id : null);
+if ($slotError !== null) {
+    echo json_encode(['error' => $slotError, 'code' => 'SLOT_UNAVAILABLE']);
+    exit;
+}
+
 if ($type === 'credit' && isset($data['card'])) {
     // ---- Omise API: Create Charge with CARD TOKEN ----
     $chargePayload = [

@@ -59,7 +59,6 @@ const WalletView = ({ onBack }) => {
         setCustomAmt('')
       }
       setStep('success')
-      // Clean URL to prevent showing success again on manual refresh
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }, [])
@@ -178,8 +177,8 @@ const WalletView = ({ onBack }) => {
         
         setStatusMsg('กำลังเข้ารหัสข้อมูลบัตรอย่างปลอดภัย...')
         cardToken = await new Promise((resolve, reject) => {
-          if (!window.Omise) return reject(new Error('Omise.js not loaded'))
-          if (!OMISE_PUBLIC_KEY) return reject(new Error('Omise public key is not configured'))
+          if (!window.Omise) return reject(new Error('ระบบชำระเงินไม่พร้อมใช้งาน (Omise SDK not loaded) กรุณาปิด Ad-blocker หรือตรวจสอบเน็ตแล้วลองใหม่'))
+          if (!OMISE_PUBLIC_KEY) return reject(new Error('ไม่ได้ตั้งค่ากุญแจสาธารณะ (Omise public key not configured)'))
           window.Omise.setPublicKey(OMISE_PUBLIC_KEY)
           const params = {
             name: cardInfo.name,
@@ -204,12 +203,10 @@ const WalletView = ({ onBack }) => {
           if (data.authorize_uri) {
             window.location.href = data.authorize_uri
           } else if (data.status === 'successful') {
-            // Immediate success - refresh and show popup
             const confirmedBalance = Number(data.wallet_balance_after)
             await finalizeTopupSuccess(Number.isNaN(confirmedBalance) ? null : confirmedBalance)
           } else {
-            // Still pending, start polling
-            setStep('qr') // Using 'qr' step as the "Waiting" step (even for cards)
+            setStep('qr') 
             setQrUri(null) 
           }
         } else {
@@ -249,55 +246,55 @@ const WalletView = ({ onBack }) => {
   const renderCardFields = (compact = false) => (
     <div
       className="glass-card flex-col fade-in"
-      style={{ background: '#fff', overflow: 'hidden', border: compact ? '2px solid var(--accent-primary)' : undefined }}
+      style={{ background: 'var(--bg-primary)', overflow: 'hidden', border: compact ? '2px solid var(--accent-primary)' : undefined }}
     >
-      <div style={{ padding: compact ? '18px 20px' : '20px 24px', background: compact ? '#fff' : '#f8f9fa', borderBottom: '1px solid #eee', fontWeight: '800', fontSize: compact ? '0.95rem' : '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="flex-row align-center gap-sm">
+      <div style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
           <CreditCard size={18} /> ข้อมูลบัตรสำหรับเติมเงิน
         </div>
-        <span style={{ fontSize: '0.7rem', opacity: 0.5, letterSpacing: '0.05em' }}>SECURE CARD ENTRY</span>
+        <span style={{ fontSize: 'var(--text-xs)', opacity: 0.8 }}>SECURE CARD ENTRY</span>
       </div>
-      <div style={{ padding: compact ? '20px' : '32px' }} className="flex-col gap-md">
+      <div style={{ padding: compact ? 'var(--space-md)' : 'var(--space-lg)' }} className="flex-col gap-md">
         <div className="flex-col gap-xs">
-          <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>หมายเลขบัตร (Card Number)</label>
+          <label style={{ fontSize: 'var(--text-xs)', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>หมายเลขบัตร (Card Number)</label>
           <input
             type="text"
             placeholder="0000 0000 0000 0000"
             value={cardInfo.number}
             onChange={(e) => setCardInfoInputs({ ...cardInfo, number: formatCardNumber(e.target.value) })}
-            style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '1px solid #ddd', borderRadius: '10px', letterSpacing: '0.05em' }}
+            style={{ width: '100%', padding: 'var(--space-md)', fontSize: 'var(--text-lg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', letterSpacing: '0.05em' }}
           />
         </div>
         <div className="flex-col gap-xs">
-          <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>ชื่อผู้ถือบัตร (Cardholder Name)</label>
+          <label style={{ fontSize: 'var(--text-xs)', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>ชื่อผู้ถือบัตร (Cardholder Name)</label>
           <input
             type="text"
             placeholder="ENGLISH NAME SURNAME"
             value={cardInfo.name}
             onChange={(e) => setCardInfoInputs({ ...cardInfo, name: e.target.value.toUpperCase() })}
-            style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '1px solid #ddd', borderRadius: '10px' }}
+            style={{ width: '100%', padding: 'var(--space-md)', fontSize: 'var(--text-lg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}
           />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
           <div className="flex-col gap-xs">
-            <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>EXP (MM/YY)</label>
+            <label style={{ fontSize: 'var(--text-xs)', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>EXP (MM/YY)</label>
             <input
               type="text"
               placeholder="MM/YY"
               value={cardInfo.expiry}
               onChange={(e) => setCardInfoInputs({ ...cardInfo, expiry: formatExpiry(e.target.value) })}
-              style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '1px solid #ddd', borderRadius: '10px' }}
+              style={{ width: '100%', padding: 'var(--space-md)', fontSize: 'var(--text-lg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}
             />
           </div>
           <div className="flex-col gap-xs">
-            <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>CVV</label>
+            <label style={{ fontSize: 'var(--text-xs)', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>CVV</label>
             <input
               type="password"
               placeholder="***"
               maxLength={4}
               value={cardInfo.cvc}
               onChange={(e) => setCardInfoInputs({ ...cardInfo, cvc: e.target.value.replace(/\D/g, '') })}
-              style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '1px solid #ddd', borderRadius: '10px' }}
+              style={{ width: '100%', padding: 'var(--space-md)', fontSize: 'var(--text-lg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}
             />
           </div>
         </div>
@@ -306,55 +303,62 @@ const WalletView = ({ onBack }) => {
   )
 
   const renderMethodCards = (compact = false) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? '12px' : '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
       {PAYMENT_METHODS_WALLET.map((m) => (
         <div
           key={m.id}
           onClick={() => setMethod(m.id)}
           style={{
-            padding: compact ? '18px 18px' : '20px 24px',
-            border: `2px solid ${method === m.id ? 'var(--accent-primary)' : '#eee'}`,
-            borderRadius: '16px',
+            padding: compact ? 'var(--space-md)' : 'var(--space-md) var(--space-lg)',
+            border: `2px solid ${method === m.id ? 'var(--accent-primary)' : 'var(--bg-secondary)'}`,
+            borderRadius: 'var(--radius-md)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px',
-            background: method === m.id ? 'var(--accent-court)' : '#fff',
+            gap: 'var(--space-md)',
+            background: method === m.id ? 'var(--accent-court)' : 'var(--bg-primary)',
             transition: 'all 0.15s',
           }}
         >
-          <div style={{ color: method === m.id ? 'var(--accent-primary)' : '#999' }}>{m.icon}</div>
+          <div style={{ color: method === m.id ? 'var(--accent-primary)' : 'var(--text-muted)' }}>{m.icon}</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: '800', fontSize: compact ? '1.05rem' : '1.1rem' }}>{m.name}</div>
-            <div style={{ fontSize: compact ? '0.82rem' : '0.85rem', color: '#888' }}>{m.desc}</div>
+            <div style={{ fontWeight: '800', fontSize: 'var(--text-lg)' }}>{m.name}</div>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{m.desc}</div>
           </div>
-          <input type="radio" checked={method === m.id} readOnly style={{ width: '18px', height: '18px' }} />
+          <input type="radio" checked={method === m.id} readOnly style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)' }} />
         </div>
       ))}
     </div>
   )
 
-  const renderAmountCard = (compact = false) => (
-    <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-      <div style={{ padding: compact ? '18px 20px' : '20px 24px', background: compact ? '#fff' : '#f8f9fa', borderBottom: '1px solid #eee', fontWeight: '800', fontSize: compact ? '0.95rem' : '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>จำนวนเงินที่ต้องการเติม</span>
-        <span style={{ fontSize: '0.7rem', opacity: 0.5, letterSpacing: '0.05em' }}>SELECT TOP-UP AMOUNT</span>
+  const renderHome = (compact = false) => (
+    <div className="glass-card flex-col" style={{ background: 'var(--bg-primary)', overflow: 'hidden' }}>
+      <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="flex-col">
+          <span>จำนวนเงินที่ต้องการเติม</span>
+          <span style={{ fontSize: 'var(--text-xs)', opacity: 0.8 }}>SELECT TOP-UP AMOUNT</span>
+        </div>
+        <Wallet size={20} opacity={0.8} />
       </div>
-      <div style={{ padding: compact ? '20px' : '32px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+      <div style={{ padding: compact ? 'var(--space-md)' : 'var(--space-lg)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(100px, 1fr))', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
           {QUICK_AMOUNTS.map((amt) => (
             <button
               key={amt}
-              onClick={() => { setSelectedAmt(amt); setCustomAmt('') }}
+              onClick={() => {
+                setSelectedAmt(amt)
+                setCustomAmt('')
+              }}
               style={{
-                padding: compact ? '18px 8px' : '20px 8px',
-                borderRadius: '12px',
-                border: `2px solid ${selectedAmt === amt && !customAmt ? 'var(--accent-primary)' : '#eee'}`,
-                background: selectedAmt === amt && !customAmt ? 'var(--accent-court)' : '#fff',
-                color: selectedAmt === amt && !customAmt ? 'var(--accent-primary)' : '#333',
-                fontWeight: '800',
-                fontSize: compact ? '1.05rem' : '1.2rem',
-                transition: 'all 0.15s'
+                padding: compact ? 'var(--space-md) var(--space-2xs)' : 'var(--space-md) var(--space-2xs)',
+                borderRadius: 'var(--radius-md)',
+                border: `2px solid ${selectedAmt === amt && !customAmt ? 'var(--accent-primary)' : 'var(--bg-secondary)'}`,
+                background: selectedAmt === amt && !customAmt ? 'var(--accent-court)' : 'var(--bg-primary)',
+                color: selectedAmt === amt && !customAmt ? 'var(--accent-primary)' : 'var(--text-primary)',
+                fontWeight: '900',
+                fontSize: compact ? 'var(--text-base)' : 'var(--text-lg)',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transform: selectedAmt === amt && !customAmt ? 'translateY(-2px)' : 'none'
               }}
             >
               ฿{amt.toLocaleString()}
@@ -363,15 +367,15 @@ const WalletView = ({ onBack }) => {
         </div>
         <div className="flex-col gap-xs">
           <div className="flex-col">
-            <span style={{ fontSize: '0.85rem', color: '#333', fontWeight: '800' }}>หรือระบุจำนวนเงินเอง</span>
-            <span style={{ fontSize: '0.7rem', color: '#bbb', marginBottom: '6px' }}>OR ENTER CUSTOM AMOUNT</span>
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)', fontWeight: '800' }}>หรือระบุจำนวนเงินเอง</span>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2xs)' }}>OR ENTER CUSTOM AMOUNT</span>
           </div>
           <input
             type="number"
             placeholder="เช่น 300"
             value={customAmt}
             onChange={(e) => setCustomAmt(e.target.value)}
-            style={{ width: '100%', padding: '16px', fontSize: '1.4rem', fontWeight: '800', border: customAmt ? '2px solid var(--accent-primary)' : '1px solid #ddd', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}
+            style={{ width: '100%', padding: 'var(--space-md)', fontSize: 'var(--text-2xl)', fontWeight: '800', border: customAmt ? '2px solid var(--accent-primary)' : '1px solid var(--glass-border)', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}
           />
         </div>
       </div>
@@ -383,26 +387,26 @@ const WalletView = ({ onBack }) => {
       <div className="glass-card fade-in booking-success-modal">
         <div style={{
           width: '80px', height: '80px', borderRadius: '50%',
-          background: 'linear-gradient(135deg, #00b894, #00cec9)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
+          background: 'var(--status-success)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-md)',
         }}>
           <CheckCircle2 size={40} color="#fff" />
         </div>
-        <h2 style={{ fontSize: '1.8rem', fontWeight: '900', color: '#1a1a3a', marginBottom: '4px' }}>เติมเงินสำเร็จ! 🎉</h2>
-        <p style={{ color: '#00b894', fontSize: '0.95rem', fontWeight: '700', marginBottom: '24px' }}>TOP-UP SUCCESSFUL</p>
+        <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: '900', color: 'var(--text-primary)', marginBottom: '4px' }}>เติมเงินสำเร็จ! 🎉</h2>
+        <p style={{ color: 'var(--status-success)', fontSize: 'var(--text-sm)', fontWeight: '700', marginBottom: 'var(--space-lg)' }}>TOP-UP SUCCESSFUL</p>
         
-        <div style={{ background: '#f8fffe', borderRadius: '12px', padding: '20px', marginBottom: '24px', textAlign: 'left', fontSize: '0.95rem', lineHeight: '2.2', border: '1px solid #e6fffa' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-            <span style={{ color: '#888' }}>ช่องทางการชำระ (METHOD)</span>
-            <strong style={{ textAlign: 'right', color: '#333' }}>{method === 'qr' ? 'Thai QR PromptPay' : 'Credit / Debit Card'}</strong>
+        <div style={{ background: 'var(--status-success-bg)', borderRadius: 'var(--radius-md)', padding: 'var(--space-lg)', marginBottom: 'var(--space-lg)', textAlign: 'left', fontSize: 'var(--text-sm)', lineHeight: '2.2', border: '1px solid var(--status-success)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-md)' }}>
+            <span style={{ color: 'var(--status-success)', opacity: 0.8 }}>ช่องทางการชำระ (METHOD)</span>
+            <strong style={{ textAlign: 'right', color: 'var(--text-primary)' }}>{method === 'qr' ? 'Thai QR PromptPay' : 'Credit / Debit Card'}</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-            <span style={{ color: '#888' }}>ยอดเติมเงิน (AMOUNT)</span>
-            <strong style={{ color: '#00b894', fontSize: '1.1rem' }}>+฿{finalAmt.toLocaleString()}</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-md)' }}>
+            <span style={{ color: 'var(--status-success)', opacity: 0.8 }}>ยอดเติมเงิน (AMOUNT)</span>
+            <strong style={{ color: 'var(--status-success)', fontSize: 'var(--text-lg)' }}>+฿{finalAmt.toLocaleString()}</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', marginTop: '8px', borderTop: '1px dashed #eee', paddingTop: '8px' }}>
-            <span style={{ color: '#333', fontWeight: '700' }}>ยอดคงเหลือใหม่ (BALANCE)</span>
-            <strong style={{ fontSize: '1.2rem', color: 'var(--accent-primary)' }}>฿{Math.floor(successBalance || balance).toLocaleString('th-TH')}</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-md)', marginTop: 'var(--space-xs)', borderTop: '1px dashed var(--status-success)', paddingTop: 'var(--space-xs)' }}>
+            <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>ยอดคงเหลือใหม่ (BALANCE)</span>
+            <strong style={{ fontSize: 'var(--text-xl)', color: 'var(--accent-primary)' }}>฿{Math.floor(successBalance || balance).toLocaleString('th-TH')}</strong>
           </div>
         </div>
         <button className="premium-button" style={{ width: '100%', padding: '18px', fontWeight: '800' }} onClick={onBack}>ตกลง (Done)</button>
@@ -421,7 +425,10 @@ const WalletView = ({ onBack }) => {
               </span>
               <span style={{ fontSize: '0.7rem', opacity: 0.8, marginLeft: '28px' }}>{method === 'qr' ? 'SECURE QR TOP-UP' : 'PROCESSING CARD...'}</span>
            </div>
-           <span style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '800' }}>
+           <span 
+              aria-live="polite"
+              style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '800' }}
+            >
               {formatTime(timeLeft)}
            </span>
         </div>
@@ -460,17 +467,19 @@ const WalletView = ({ onBack }) => {
       <div className="container-wide">
         <div className="wallet-desktop-layout booking-layout-grid">
            <div className="flex-col gap-lg">
-              <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-                 <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', fontSize: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                   <span>กระเป๋าเงิน (Wallet)</span>
-                   <Wallet size={20} />
+              <div className="glass-card flex-col" style={{ background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+                 <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                   <div className="flex-col">
+                     <span style={{ fontSize: 'var(--text-lg)' }}>วอลเล็ต (Wallet)</span>
+                     <span style={{ fontSize: 'var(--text-xs)', opacity: 0.8, fontWeight: '600', letterSpacing: '0.05em' }}>PERSONAL BALANCE</span>
+                   </div>
+                   <Wallet size={20} opacity={0.8} />
                  </div>
-                 <div style={{ padding: '48px 32px', textAlign: 'center', background: '#fff' }}>
-                    <div className="flex-col" style={{ gap: '4px' }}>
-                      <span style={{ color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700' }}>ยอดเงินคงเหลือปัจจุบัน</span>
-                      <span style={{ color: '#bbb', fontSize: '0.7rem' }}>CURRENT BALANCE</span>
+                 <div style={{ padding: '32px 24px', textAlign: 'center', background: 'var(--bg-primary)' }}>
+                    <div className="flex-col" style={{ gap: 'var(--space-2xs)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-md)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '800' }}>ยอดเงินคงเหลือปัจจุบัน</span>
                     </div>
-                    <div style={{ fontSize: '4rem', fontWeight: '900', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)', marginTop: '16px' }}>
+                    <div style={{ fontSize: '3.5rem', fontWeight: '900', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)', marginTop: 'var(--space-sm)', letterSpacing: '-0.02em' }}>
                       ฿{balance.toLocaleString()}
                     </div>
                  </div>
@@ -478,30 +487,30 @@ const WalletView = ({ onBack }) => {
 
               {method === 'credit' && renderCardFields(false)}
 
-              {renderAmountCard(false)}
+              {renderHome(false)}
            </div>
 
            <div style={{ position: 'sticky', top: '100px', height: 'fit-content' }}>
-              <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-                 <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', fontSize: '1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="glass-card flex-col" style={{ background: 'var(--bg-primary)', overflow: 'hidden' }}>
+                 <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', fontSize: 'var(--text-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                    <span>วิธีการชำระเงิน</span>
-                   <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>PAYMENT METHODS</span>
+                   <span style={{ fontSize: 'var(--text-xs)', opacity: 0.8 }}>PAYMENT METHODS</span>
                  </div>
-                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                 <div style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                     {renderMethodCards(false)}
 
-                    <div style={{ borderTop: '2px dashed #eee', margin: '20px 0', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ borderTop: '2px dashed var(--glass-border)', margin: 'var(--space-lg) 0', paddingTop: 'var(--space-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                        <div className="flex-col">
-                         <span style={{ color: '#333', fontWeight: '800', fontSize: '1.1rem' }}>ยอดเติมเงินรวม</span>
-                         <span style={{ fontSize: '0.75rem', color: '#888' }}>TOTAL TOP-UP</span>
+                         <span style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: 'var(--text-lg)' }}>ยอดเติมเงินรวม</span>
+                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>TOTAL TOP-UP</span>
                        </div>
-                       <span style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>฿{finalAmt.toLocaleString()}</span>
+                       <span style={{ fontSize: 'var(--text-2xl)', fontWeight: '900', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>฿{finalAmt.toLocaleString()}</span>
                     </div>
 
-                    <button className="premium-button" style={{ width: '100%', padding: '20px', fontWeight: '800' }} onClick={handleConfirmTopUp} disabled={processing}>
+                    <button className="premium-button" style={{ width: '100%', padding: 'var(--space-lg)', fontWeight: '800' }} onClick={handleConfirmTopUp} disabled={processing}>
                        {processing ? (statusMsg || 'กำลังดำเนินการ...') : 'ยืนยันการเติมเงิน (Secure Top-up)'}
                     </button>
-                    <button onClick={onBack} style={{ width: '100%', marginTop: '12px', background: 'none', border: 'none', color: '#888', fontWeight: '700', cursor: 'pointer', fontSize: '0.95rem' }}>
+                    <button onClick={onBack} style={{ width: '100%', marginTop: 'var(--space-md)', background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: '700', cursor: 'pointer', fontSize: 'var(--text-sm)' }}>
                        ย้อนกลับ (Back)
                     </button>
                  </div>
@@ -510,49 +519,49 @@ const WalletView = ({ onBack }) => {
         </div>
 
         <div className="wallet-mobile-layout flex-col gap-lg">
-          <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', fontSize: '1.1rem' }}>
+          <div className="glass-card flex-col" style={{ background: 'var(--bg-primary)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', fontSize: 'var(--text-lg)' }}>
               วอลเล็ต (Wallet)
             </div>
-            <div style={{ padding: '24px 20px', textAlign: 'center', background: '#fff' }}>
-              <div style={{ color: '#888', fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: '700' }}>ยอดเงินคงเหลือ (Balance)</div>
-              <div style={{ fontSize: '2.8rem', fontWeight: '900', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>
+            <div style={{ padding: 'var(--space-lg) var(--space-md)', textAlign: 'center', background: 'var(--bg-primary)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', textTransform: 'uppercase', fontWeight: '700' }}>ยอดเงินคงเหลือ (Balance)</div>
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: '900', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>
                 ฿{balance.toLocaleString()}
               </div>
             </div>
           </div>
 
-          <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-            <div style={{ padding: '20px' }}>
-              <div style={{ fontSize: '0.9rem', color: '#333', fontWeight: '800', marginBottom: '12px' }}>วิธีการเติมเงิน (Methods)</div>
+          <div className="glass-card flex-col" style={{ background: 'var(--bg-primary)', overflow: 'hidden' }}>
+            <div style={{ padding: 'var(--space-md)' }}>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)', fontWeight: '800', marginBottom: 'var(--space-sm)' }}>วิธีการเติมเงิน (Methods)</div>
               {renderMethodCards(true)}
             </div>
           </div>
 
           {method === 'credit' ? renderCardFields(true) : null}
 
-          {renderAmountCard(true)}
+          {renderHome(true)}
 
-          <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-            <div style={{ padding: '20px' }}>
-              <div style={{ borderBottom: '1px solid #eee', paddingBottom: '14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '0.98rem' }}>
+          <div className="glass-card flex-col" style={{ background: 'var(--bg-primary)', overflow: 'hidden' }}>
+            <div style={{ padding: 'var(--space-md)' }}>
+              <div style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-sm)', display: 'flex', justifyContent: 'space-between', gap: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
                 <div className="flex-col">
-                  <span style={{ color: '#888', fontSize: '0.85rem' }}>ช่องทางการชำระ</span>
-                  <span style={{ fontSize: '0.7rem', color: '#bbb' }}>METHOD</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>ช่องทางการชำระ</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', opacity: 0.6 }}>METHOD</span>
                 </div>
-                <strong style={{ color: '#333' }}>{method === 'qr' ? 'PromptPay' : 'Credit / Debit Card'}</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>{method === 'qr' ? 'PromptPay' : 'Credit / Debit Card'}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
                 <div className="flex-col">
-                  <span style={{ color: '#333', fontWeight: '800', fontSize: '1.1rem' }}>ยอดเติมเงินรวม</span>
-                  <span style={{ fontSize: '0.75rem', color: '#888' }}>TOTAL</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: 'var(--text-lg)' }}>ยอดเติมเงินรวม</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>TOTAL</span>
                 </div>
-                <span style={{ fontSize: '1.8rem', fontWeight: '900', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>฿{finalAmt.toLocaleString()}</span>
+                <span style={{ fontSize: 'var(--text-2xl)', fontWeight: '900', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>฿{finalAmt.toLocaleString()}</span>
               </div>
-              <button className="premium-button" style={{ width: '100%', padding: '18px', fontWeight: '800' }} onClick={handleConfirmTopUp} disabled={processing}>
+              <button className="premium-button" style={{ width: '100%', padding: 'var(--space-md)', fontWeight: '800' }} onClick={handleConfirmTopUp} disabled={processing}>
                 {processing ? 'กำลังดำเนินการ...' : 'เติมเงินเดี๋ยวนี้ (Top-up)'}
               </button>
-              <button onClick={onBack} style={{ width: '100%', marginTop: '12px', background: 'none', border: 'none', color: '#888', fontWeight: '700', cursor: 'pointer', fontSize: '0.95rem' }}>
+              <button onClick={onBack} style={{ width: '100%', marginTop: 'var(--space-md)', background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: '700', cursor: 'pointer', fontSize: 'var(--text-sm)' }}>
                 ย้อนกลับ (Back)
               </button>
             </div>
@@ -562,8 +571,8 @@ const WalletView = ({ onBack }) => {
 
       {processing && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-           <div className="loading-spinner" style={{ width: '50px', height: '50px', border: '4px solid #eee', borderTopColor: 'var(--accent-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
-           <p style={{ fontWeight: '700', color: '#333' }}>{statusMsg || 'กำลังเตรียมการชำระเงิน...'}</p>
+           <div className="loading-spinner" style={{ width: '50px', height: '50px', border: '4px solid var(--bg-secondary)', borderTopColor: 'var(--accent-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: 'var(--space-md)' }} />
+           <p style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{statusMsg || 'กำลังเตรียมการชำระเงิน...'}</p>
         </div>
       )}
     </div>

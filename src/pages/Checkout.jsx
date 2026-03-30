@@ -151,8 +151,14 @@ function Checkout({ booking, onBack, onComplete }) {
 
     try {
       const cardToken = await new Promise((resolve, reject) => {
-        if (!window.Omise) { reject(new Error('Omise.js not loaded')); return }
-        if (!OMISE_PUBLIC_KEY) { reject(new Error('Omise public key is not configured')); return }
+        if (!window.Omise) { 
+          reject(new Error('ระบบชำระเงินไม่พร้อมใช้งาน (Omise SDK not loaded). กรุณาปิด Ad-blocker หรือตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง')); 
+          return 
+        }
+        if (!OMISE_PUBLIC_KEY) { 
+          reject(new Error('ไม่ได้ตั้งค่ากุญแจสาธารณะ (Missing Omise Public Key)')); 
+          return 
+        }
         window.Omise.setPublicKey(OMISE_PUBLIC_KEY);
         const params = {
           name: cardInfo.name,
@@ -235,7 +241,7 @@ function Checkout({ booking, onBack, onComplete }) {
         setPaymentSuccess(true)
         setPaymentStep('success')
         // No overlay for wallet, just success modal
-      } catch {
+      } catch (error) {
         alert('เกิดข้อผิดพลาดในการหักเงินจาก Wallet')
       }
       setIsProcessing(false)
@@ -264,7 +270,7 @@ function Checkout({ booking, onBack, onComplete }) {
       } else {
         alert(data.error || 'ไม่สามารถสร้าง QR Code ได้')
       }
-    } catch {
+    } catch (error) {
       alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์')
     } finally {
       setIsProcessing(false)
@@ -325,17 +331,17 @@ function Checkout({ booking, onBack, onComplete }) {
             <span style={{ fontSize: '0.85rem', opacity: 0.9, letterSpacing: '0.05em', fontWeight: '600' }}>รายการจองชั่วคราว</span>
           </div>
           
-          <div style={{ padding: '32px', background: '#fff' }}>
-             <div className="profile-info-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
+          <div style={{ padding: 'var(--space-lg)', background: 'var(--bg-primary)' }}>
+             <div className="profile-info-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-lg)' }}>
                 {infoItems.map((item, idx) => (
-                   <div key={idx} className="profile-info-item" style={{ borderBottom: '1px solid #f8f8f8', paddingBottom: '8px', minWidth: 0 }}>
-                    <span className="profile-info-label" style={{ color: '#999', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', display: 'block' }}>{item.label}</span>
+                   <div key={idx} className="profile-info-item" style={{ borderBottom: '1px solid var(--bg-secondary)', paddingBottom: 'var(--space-xs)', minWidth: 0 }}>
+                    <span className="profile-info-label" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2xs)', display: 'block' }}>{item.label}</span>
                     <span
                       className="profile-info-value"
                       style={{
-                        fontSize: '1.1rem',
+                        fontSize: 'var(--text-base)',
                         fontWeight: '700',
-                        color: '#333',
+                        color: 'var(--text-primary)',
                         display: 'block',
                         minWidth: 0,
                         overflowWrap: 'anywhere',
@@ -511,7 +517,10 @@ function Checkout({ booking, onBack, onComplete }) {
             <div style={{ padding: '32px', background: '#fff' }}>
               {paymentStep === 'qr' && (
                 <div style={{ textAlign: 'center' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.2)', color: 'var(--accent-primary)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '700', marginBottom: '16px' }}>
+                    <div 
+                      aria-live="polite"
+                      style={{ background: 'rgba(255,255,255,0.2)', color: 'var(--accent-primary)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '700', marginBottom: '16px' }}
+                    >
                       หมดอายุภายใน {formatTime(timeLeft)}
                     </div>
                     <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', display: 'inline-block', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
@@ -547,37 +556,37 @@ function Checkout({ booking, onBack, onComplete }) {
       {/* ✅ Premium Payment Success Modal (Popup) */}
       {paymentSuccess && (
         <div className="booking-success-overlay">
-          <div className="glass-card fade-in booking-success-modal">
+            <div className="glass-card fade-in booking-success-modal">
             <div style={{
               width: '80px', height: '80px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #00b894, #00cec9)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
+              background: 'var(--status-success)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-md)',
             }}>
               <CheckCircle2 size={40} color="#fff" />
             </div>
-            <h2 style={{ fontSize: '1.8rem', fontWeight: '900', color: '#1a1a3a', marginBottom: '4px' }}>การจองสำเร็จเแล้ว! 🎉</h2>
-            <p style={{ color: '#00b894', fontSize: '0.95rem', fontWeight: '700', marginBottom: '24px' }}>BOOKING CONFIRMED</p>
+            <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: '900', color: 'var(--text-primary)', marginBottom: 'var(--space-2xs)' }}>การจองสำเร็จเแล้ว! 🎉</h2>
+            <p style={{ color: 'var(--status-success)', fontSize: 'var(--text-sm)', fontWeight: '700', marginBottom: 'var(--space-lg)' }}>BOOKING CONFIRMED</p>
             
-            <div style={{ background: '#f8fffe', borderRadius: '12px', padding: '20px', marginBottom: '24px', textAlign: 'left', fontSize: '0.95rem', lineHeight: '2.2', border: '1px solid #e6fffa' }}>
+            <div style={{ background: 'var(--status-success-bg)', borderRadius: 'var(--radius-md)', padding: 'var(--space-lg)', marginBottom: 'var(--space-lg)', textAlign: 'left', fontSize: 'var(--text-sm)', lineHeight: '2.2', border: '1px solid var(--status-success)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>สนาม (COURT)</span>
-                <strong style={{ color: '#333' }}>{booking?.court?.name || booking?.court}</strong>
+                <span style={{ color: 'var(--status-success)', opacity: 0.8 }}>สนาม (COURT)</span>
+                <strong style={{ color: 'var(--text-primary)' }}>{booking?.court?.name || booking?.court}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>วันที่ (DATE)</span>
-                <strong style={{ color: '#333' }}>{booking?.date}</strong>
+                <span style={{ color: 'var(--status-success)', opacity: 0.8 }}>วันที่ (DATE)</span>
+                <strong style={{ color: 'var(--text-primary)' }}>{booking?.date}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>เวลา (TIME)</span>
-                <strong style={{ color: '#333' }}>{booking?.time}</strong>
+                <span style={{ color: 'var(--status-success)', opacity: 0.8 }}>เวลา (TIME)</span>
+                <strong style={{ color: 'var(--text-primary)' }}>{booking?.time}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>ผู้จอง (CUSTOMER)</span>
-                <strong style={{ maxWidth: '45%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#333' }}>{user?.name}</strong>
+                <span style={{ color: 'var(--status-success)', opacity: 0.8 }}>ผู้จอง (CUSTOMER)</span>
+                <strong style={{ maxWidth: '45%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{user?.name}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', borderTop: '1px dashed #eee', paddingTop: '8px' }}>
-                <span style={{ color: '#888', fontWeight: '700' }}>ยอดชำระ (TOTAL)</span>
-                <strong style={{ color: '#00b894', fontSize: '1.2rem' }}>฿{price.toFixed(2)}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-xs)', borderTop: '1px dashed var(--status-success)', paddingTop: 'var(--space-xs)' }}>
+                <span style={{ color: 'var(--status-success)', fontWeight: '700' }}>ยอดชำระ (TOTAL)</span>
+                <strong style={{ color: 'var(--status-success)', fontSize: 'var(--text-lg)' }}>฿{price.toFixed(2)}</strong>
               </div>
             </div>
             <button

@@ -15,18 +15,25 @@ export const Header = ({ onViewChange }) => {
 
   return (
     <header className="header-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div
+      <button
         className="brand"
         onClick={() => onViewChange('profile')}
-        style={{ fontWeight: '800', fontSize: '1.6rem', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+        aria-label="หน้าหลัก (Back to Home)"
+        style={{ fontWeight: '800', fontSize: '1.6rem', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', border: 'none', background: 'none', padding: 0 }}
       >
         <span style={{ fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em', textTransform: 'uppercase' }}>TENNIS COURT</span>
-      </div>
+      </button>
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setShowMenu((current) => !current)}>
+        <button
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', border: 'none', background: 'none', padding: '4px 8px', borderRadius: '8px' }}
+          onClick={() => setShowMenu((current) => !current)}
+          aria-label={`เมนูผู้ใช้: ${user.name} (User Menu)`}
+          aria-expanded={showMenu}
+          aria-haspopup="true"
+        >
           <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1a1a1a' }}>{user.name}</span>
-          <Menu size={28} color="#1a1a1a" />
-        </div>
+          <Menu size={28} color="#1a1a1a" aria-hidden="true" />
+        </button>
 
         {showMenu && (
           <div

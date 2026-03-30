@@ -296,6 +296,64 @@ $buildSalesReportPeriod = function ($periodKey, $selectedMonth = null) {
     };
 };
 
+$getAllotmentSnapshot = function ($courtId, $date, $hour, bool $forUpdate = false) use ($conn) {
+    $sql = "
+        SELECT id, is_open, booked_by
+        FROM allotments
+        WHERE court_id = ? AND date = ? AND hour = ?
+        LIMIT 1
+    ";
+
+    if ($forUpdate) {
+        $sql .= " FOR UPDATE";
+    }
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([$courtId, $date, $hour]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+};
+
+$validateSlotAvailability = function ($courtId, $date, $hour, ?int $excludeBookingId = null, bool $forUpdate = false) use ($conn, $getAllotmentSnapshot) {
+    $allotment = $getAllotmentSnapshot($courtId, $date, $hour, $forUpdate);
+
+    if ($allotment) {
+        $isOpen = $allotment['is_open'] === null || (int) $allotment['is_open'] === 1;
+        $bookedBy = trim((string) ($allotment['booked_by'] ?? ''));
+
+        if (!$isOpen && $bookedBy === '') {
+            return 'This time slot has been closed by admin.';
+        }
+
+        if ($bookedBy !== '') {
+            return 'This time slot is no longer available.';
+        }
+    }
+
+    $sql = "
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE court_id = ?
+          AND booking_date = ?
+          AND booking_time = ?
+          AND LOWER(COALESCE(status, '')) IN ('paid', 'successful', 'success', 'confirmed')
+    ";
+    $params = [$courtId, $date, $hour];
+
+    if ($excludeBookingId !== null) {
+        $sql .= " AND id <> ?";
+        $params[] = $excludeBookingId;
+    }
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($params);
+
+    if ((int) $stmt->fetchColumn() > 0) {
+        return 'This time slot has already been booked.';
+    }
+
+    return null;
+};
+
 $requestedAction = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
 
 switch($requestedAction) {
@@ -1053,6 +1111,12 @@ switch($requestedAction) {
         $data = json_decode(file_get_contents("php://input"));
         $booking_id = null;
         if (isset($data->user_id) && $data->user_id > 0) {
+            $slotError = $validateSlotAvailability($data->court_id, $data->date, $data->hour);
+            if ($slotError !== null) {
+                echo json_encode(["success" => false, "error" => $slotError, "code" => "SLOT_UNAVAILABLE"]);
+                break;
+            }
+
             $stmt = $conn->prepare("INSERT INTO bookings (user_id, court_id, booking_date, booking_time, price, status) 
                                    VALUES (?, ?, ?, ?, ?, 'Pending')");
             $stmt->execute([
@@ -1295,6 +1359,20 @@ switch($requestedAction) {
 
         try {
             $conn->beginTransaction();
+
+            $slotError = $validateSlotAvailability(
+                $data->court_id,
+                $data->date,
+                $data->hour,
+                $bookingId ? (int) $bookingId : null,
+                true
+            );
+
+            if ($slotError !== null) {
+                $conn->rollBack();
+                echo json_encode(["success" => false, "error" => $slotError, "code" => "SLOT_UNAVAILABLE"]);
+                break;
+            }
 
             // 1. Check wallet balance
             $stmt = $conn->prepare("SELECT wallet_balance FROM users WHERE id = ? FOR UPDATE");
