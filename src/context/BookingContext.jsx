@@ -17,8 +17,11 @@ export const BookingProvider = ({ children }) => {
           }),
         )
       }
+
+      return Array.isArray(data) ? data : []
     } catch (error) {
       console.error('Fetch courts metadata error:', error)
+      return []
     }
   }, [])
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { CheckCircle2 } from 'lucide-react'
 import './App.css'
 
 import { api } from './services/api'
@@ -15,9 +16,22 @@ import ProfileDashboard from './pages/Profile'
 import Booking from './pages/Booking'
 import Checkout from './pages/Checkout'
 
+const BOOKING_RETURN_STORAGE_KEY = 'court_booking_return'
+
+const readStoredBookingReturn = () => {
+  try {
+    const raw = localStorage.getItem(BOOKING_RETURN_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 const getInitialView = () => {
   const params = new URLSearchParams(window.location.search)
-  if (params.get('payment') === 'success') return 'history'
+  if (params.get('payment') === 'success') {
+    return readStoredBookingReturn() ? 'profile' : 'history'
+  }
   if (params.get('topup') === 'success') return 'wallet'
 
   try {
@@ -41,6 +55,7 @@ function App() {
     walletBalance,
     setWalletBalance,
     fetchUserBalance,
+    fetchCourtsMetadata,
     fetchStatus,
     fetchUserHistory,
     mockDatabase,
@@ -49,6 +64,10 @@ function App() {
 
   const [view, setView] = useState(getInitialView)
   const [currentBooking, setCurrentBooking] = useState(null)
+  const [returnedPaymentSuccess, setReturnedPaymentSuccess] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('payment') === 'success' ? readStoredBookingReturn() : null
+  })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -63,10 +82,37 @@ function App() {
       void fetchUserHistory(user.id)
     }
 
+    if (paymentSuccess) {
+      const returnedBooking = readStoredBookingReturn()
+
+      if (returnedBooking) {
+        setReturnedPaymentSuccess(returnedBooking)
+        setView('profile')
+
+        if (returnedBooking.bookingId && returnedBooking.chargeId) {
+          void api.checkPaymentStatus(returnedBooking.bookingId, returnedBooking.chargeId)
+            .then(() => {
+              if (user?.id) {
+                return fetchUserHistory(user.id)
+              }
+
+              return null
+            })
+            .catch((error) => {
+              console.error('Reconcile returned card payment failed:', error)
+            })
+        }
+
+        if (returnedBooking.date) {
+          void fetchStatus(returnedBooking.date)
+        }
+      }
+    }
+
     if (topupSuccess) {
       void fetchUserBalance()
     }
-  }, [fetchUserBalance, fetchUserHistory, user?.id])
+  }, [fetchUserBalance, fetchStatus, fetchUserHistory, user?.id])
 
   const handleLoginSuccess = async (phone) => {
     const result = await login(phone, mockDatabase)
@@ -86,6 +132,11 @@ function App() {
     if (newUser) {
       setView('profile')
     }
+  }
+
+  const handleStartBooking = async () => {
+    await fetchCourtsMetadata()
+    setView('booking')
   }
 
   const handleBookingConfirm = async (bookingData) => {
@@ -151,6 +202,12 @@ function App() {
     setView('profile')
   }
 
+  const handleDismissReturnedPaymentSuccess = () => {
+    localStorage.removeItem(BOOKING_RETURN_STORAGE_KEY)
+    setReturnedPaymentSuccess(null)
+    setView('profile')
+  }
+
   return (
     <div
       className="app-shell"
@@ -165,7 +222,7 @@ function App() {
       {view === 'registration' && <ProfileRegistration onComplete={handleRegistrationComplete} />}
 
       {view === 'profile' && (
-        <ProfileDashboard user={user} walletBalance={walletBalance} onStartBooking={() => setView('booking')} />
+        <ProfileDashboard user={user} walletBalance={walletBalance} onStartBooking={handleStartBooking} />
       )}
 
       {view === 'history' && <HistoryView onBack={() => setView('profile')} />}
@@ -175,6 +232,46 @@ function App() {
 
       {view === 'checkout' && (
         <Checkout booking={currentBooking} onBack={handleCancelBooking} onComplete={handlePaymentComplete} />
+      )}
+
+      {returnedPaymentSuccess && (
+        <div className="booking-success-overlay">
+          <div className="glass-card fade-in booking-success-modal">
+            <div
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #00b894, #00cec9)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+              }}
+            >
+              <CheckCircle2 size={40} color="#fff" />
+            </div>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#1a1a3a', marginBottom: '8px' }}>จองสำเร็จ!</h2>
+            <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '20px' }}>
+              ระบบยืนยันการชำระเงินผ่านบัตรเรียบร้อยแล้ว
+            </p>
+            <div style={{ background: '#f8fffe', borderRadius: '12px', padding: '16px', marginBottom: '24px', textAlign: 'left', fontSize: '0.9rem', lineHeight: '2' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}><span style={{ color: '#666' }}>สนาม</span><strong>{returnedPaymentSuccess.court}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}><span style={{ color: '#666' }}>วันที่</span><strong>{returnedPaymentSuccess.date}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}><span style={{ color: '#666' }}>เวลา</span><strong>{returnedPaymentSuccess.time}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}><span style={{ color: '#666' }}>ผู้จอง</span><strong>{returnedPaymentSuccess.customerName}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}><span style={{ color: '#666' }}>ช่องทางชำระ</span><strong>{returnedPaymentSuccess.paymentMethod === 'card' ? 'Credit / Debit Card' : returnedPaymentSuccess.paymentMethod}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}><span style={{ color: '#666' }}>ยอดชำระ</span><strong style={{ color: '#00b894' }}>฿{Number(returnedPaymentSuccess.price || 0).toFixed(2)}</strong></div>
+            </div>
+            <button
+              className="premium-button"
+              style={{ width: '100%', background: '#1a1a3a', padding: '16px', borderRadius: '12px', fontSize: '1rem', fontWeight: '700' }}
+              onClick={handleDismissReturnedPaymentSuccess}
+            >
+              กลับสู่หน้าหลัก
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

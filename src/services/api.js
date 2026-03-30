@@ -120,6 +120,9 @@ export const api = {
   adminDeleteBooking: async (bookingId) =>
     handleResponse(await postJson(`${BASE_URL}?action=admin_delete_booking`, { booking_id: bookingId })),
 
+  adminCancelBooking: async (bookingId, reason) =>
+    handleResponse(await postJson(`${BASE_URL}?action=admin_cancel_booking`, { booking_id: bookingId, reason })),
+
   getAuditLogs: async (date) => {
     const timestamp = Date.now()
     const url = date
@@ -134,6 +137,20 @@ export const api = {
       ? `${BASE_URL}?action=get_wallet_transactions&date=${date}&t=${timestamp}`
       : `${BASE_URL}?action=get_wallet_transactions&t=${timestamp}`
     return handleResponse(await request(url))
+  },
+
+  getSalesReport: async ({ period = 'current_month', month = '' } = {}) => {
+    const params = new URLSearchParams({
+      action: 'get_sales_report',
+      period,
+      t: String(Date.now()),
+    })
+
+    if (month) {
+      params.set('month', month)
+    }
+
+    return handleResponse(await request(`${BASE_URL}?${params.toString()}`))
   },
 
   requestOTP: async (phone) =>

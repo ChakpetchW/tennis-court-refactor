@@ -20,6 +20,59 @@ const MONTHS = [
 
 const ITEMS_PER_PAGE = 10
 
+const getBookingStatusPresentation = (booking) => {
+  const status = (booking.status || '').toString().trim().toLowerCase()
+  const refundStatus = (booking.refund_status || '').toString().trim().toLowerCase()
+
+  if (status === 'cancelled') {
+    if (refundStatus === 'refunded') {
+      return {
+        label: 'ยกเลิกแล้ว',
+        detail: 'คืนเงินแล้ว',
+        background: '#fff5f5',
+        color: '#c53030',
+        amountColor: '#555',
+      }
+    }
+
+    if (refundStatus === 'refund pending') {
+      return {
+        label: 'ยกเลิกแล้ว',
+        detail: 'รอคืนเงิน',
+        background: '#fff4e6',
+        color: '#c76b00',
+        amountColor: '#555',
+      }
+    }
+
+    return {
+      label: 'ยกเลิกแล้ว',
+      detail: '',
+      background: '#fff5f5',
+      color: '#c53030',
+      amountColor: '#555',
+    }
+  }
+
+  if (status === 'paid') {
+    return {
+      label: 'ชำระแล้ว',
+      detail: '',
+      background: '#e6fffa',
+      color: '#2c7a7b',
+      amountColor: '#00b894',
+    }
+  }
+
+  return {
+    label: 'รอชำระเงิน',
+    detail: '',
+    background: '#fffbea',
+    color: '#b7791f',
+    amountColor: '#555',
+  }
+}
+
 const HistoryView = ({ onBack }) => {
   const { userHistory } = useApp()
   const [currentPage, setCurrentPage] = useState(1)
@@ -89,47 +142,56 @@ const HistoryView = ({ onBack }) => {
         ) : (
           <>
             <div className="flex-col gap-md">
-              {currentRecords.map((booking, index) => (
-                <div key={booking.id || index} className="glass-card" style={{ background: '#f8fffe', border: '1px solid #e0f2f1', padding: '20px', borderRadius: '16px', transition: 'transform 0.2s' }}>
-                  <div className="history-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
-                    <div className="flex-col gap-xs history-record-main" style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1a1a3a' }}>{booking.court_name || booking.court}</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: '600' }}>{booking.venue_name || 'Tennis Court'}</div>
-                      <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#555', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Calendar size={14} /> {booking.booking_date || booking.date} เวลา {booking.booking_time || booking.time}
+              {currentRecords.map((booking, index) => {
+                const statusPresentation = getBookingStatusPresentation(booking)
+
+                return (
+                  <div key={booking.id || index} className="glass-card" style={{ background: '#f8fffe', border: '1px solid #e0f2f1', padding: '20px', borderRadius: '16px', transition: 'transform 0.2s' }}>
+                    <div className="history-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                      <div className="flex-col gap-xs history-record-main" style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1a1a3a' }}>{booking.court_name || booking.court}</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: '600' }}>{booking.venue_name || 'Tennis Court'}</div>
+                        <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#555', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Calendar size={14} /> {booking.booking_date || booking.date} เวลา {booking.booking_time || booking.time}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={12} /> ชำระเมื่อ: {booking.created_at ? new Date(booking.created_at).toLocaleString('th-TH') : booking.paidAt || '-'}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '4px', fontFamily: 'monospace', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                          #{booking.transaction_ref ? booking.transaction_ref.substring(0, 12) : booking.bookingNo || booking.id}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={12} /> ชำระเมื่อ: {booking.created_at ? new Date(booking.created_at).toLocaleString('th-TH') : booking.paidAt || '-'}
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '4px', fontFamily: 'monospace', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                        #{booking.transaction_ref ? booking.transaction_ref.substring(0, 12) : booking.bookingNo || booking.id}
-                      </div>
-                    </div>
-                    <div className="history-record-side" style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <span
-                        className="history-status-badge"
-                        style={{
-                          background: booking.status === 'Paid' ? '#e6fffa' : booking.status === 'Cancelled' ? '#fff5f5' : '#fffbea',
-                          color: booking.status === 'Paid' ? '#2c7a7b' : booking.status === 'Cancelled' ? '#c53030' : '#b7791f',
-                          padding: '6px 14px',
-                          borderRadius: '20px',
-                          fontSize: '0.8rem',
-                          fontWeight: '800',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {booking.status === 'Paid' ? 'ชำระแล้ว' : booking.status === 'Cancelled' ? 'ยกเลิกแล้ว' : 'รอชำระเงิน'}
-                      </span>
-                      <div style={{ marginTop: '12px', fontWeight: '900', color: booking.status === 'Paid' ? '#00b894' : '#555', fontSize: '1.2rem' }}>
-                        ฿{Math.floor(Number(booking.price || 500)).toLocaleString('th-TH')}
+                      <div className="history-record-side" style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <span
+                          className="history-status-badge"
+                          style={{
+                            background: statusPresentation.background,
+                            color: statusPresentation.color,
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            fontSize: '0.8rem',
+                            fontWeight: '800',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {statusPresentation.label}
+                        </span>
+                        {statusPresentation.detail ? (
+                          <div style={{ marginTop: '8px', fontSize: '0.78rem', fontWeight: '700', color: statusPresentation.color }}>
+                            {statusPresentation.detail}
+                          </div>
+                        ) : null}
+                        <div style={{ marginTop: '12px', fontWeight: '900', color: statusPresentation.amountColor, fontSize: '1.2rem' }}>
+                          ฿{Math.floor(Number(booking.price || 500)).toLocaleString('th-TH')}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {totalPages > 1 && (

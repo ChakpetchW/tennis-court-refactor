@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Calendar, ClipboardList, DollarSign, List, RefreshCw, ShieldCheck, Users } from 'lucide-react'
+import { BarChart3, Calendar, ClipboardList, DollarSign, List, RefreshCw, ShieldCheck, Users } from 'lucide-react'
 import { api } from '../services/api'
 import { useApp } from '../hooks/useApp'
 
@@ -8,6 +8,7 @@ import AdminAuditLog from '../components/admin/AdminAuditLog'
 import AdminBookings from '../components/admin/AdminBookings'
 import AdminDatePicker from '../components/admin/AdminDatePicker'
 import AdminPricing from '../components/admin/AdminPricing'
+import AdminSalesReport from '../components/admin/AdminSalesReport'
 import AdminSettings from '../components/admin/AdminSettings'
 import AdminTransactions from '../components/admin/AdminTransactions'
 import AdminUsers from '../components/admin/AdminUsers'
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'bookings', label: 'Reservations', icon: <ClipboardList size={18} /> },
   { id: 'users', label: 'Members', icon: <Users size={18} /> },
   { id: 'pricing', label: 'Rates', icon: <DollarSign size={18} /> },
+  { id: 'reports', label: 'Reports', icon: <BarChart3 size={18} /> },
   { id: 'transactions', label: 'Audit Log', icon: <List size={18} /> },
   { id: 'settings', label: 'Ops', icon: <ShieldCheck size={18} /> },
 ]
@@ -121,13 +123,13 @@ const Admin = () => {
   ])
 
   return (
-    <div className="fade-in" style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
+    <div className="fade-in admin-console-page" style={{ width: 'min(1680px, calc(100vw - 32px))', margin: '0 auto', padding: '20px 0 28px' }}>
       <div className="glass-card flex-col" style={{ padding: '0', background: '#fff', border: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 32px', borderBottom: '1px solid #eee', background: 'var(--accent-primary)', color: '#fff' }}>
+        <div className="admin-console-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 32px', borderBottom: '1px solid #eee', background: 'var(--accent-primary)', color: '#fff' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <h2 style={{ fontSize: '1.6rem', fontFamily: 'var(--font-heading)', margin: 0, letterSpacing: '-0.02em' }}>MANAGEMENT CONSOLE</h2>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div className="admin-console-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
             <AdminDatePicker value={selectedDate} onChange={setSelectedDate} />
             <button
               onClick={() => void refreshDashboard()}
@@ -145,7 +147,7 @@ const Admin = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', background: '#fcfcfc', padding: '12px 32px', borderBottom: '1px solid #eee', overflowX: 'auto', gap: '8px' }}>
+        <div className="admin-console-tabs" style={{ display: 'flex', background: '#fcfcfc', padding: '12px 32px', borderBottom: '1px solid #eee', overflowX: 'auto', gap: '8px' }}>
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -170,11 +172,12 @@ const Admin = () => {
           ))}
         </div>
 
-        <div style={{ padding: '24px' }}>
+        <div className="admin-console-content" style={{ padding: '24px' }}>
           {activeTab === 'allotment' && <AdminAllotment selectedDate={selectedDate} />}
           {activeTab === 'bookings' && <AdminBookings selectedDate={selectedDate} onActiveUserFilter={(name) => { setUserFilter(name); setActiveTab('users') }} />}
           {activeTab === 'users' && <AdminUsers initialFilter={userFilter} />}
           {activeTab === 'pricing' && <AdminPricing rates={rates} setRates={setRates} />}
+          {activeTab === 'reports' && <AdminSalesReport />}
           {activeTab === 'transactions' && (
             <div className="flex-col gap-xl">
               <AdminTransactions transactions={walletTransactions} />

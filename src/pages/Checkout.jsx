@@ -5,6 +5,7 @@ import { useApp } from '../hooks/useApp'
 import { INITIAL_COURTS } from '../data/constants'
 
 const OMISE_PUBLIC_KEY = import.meta.env.VITE_OMISE_PUBLIC_KEY || ''
+const BOOKING_RETURN_STORAGE_KEY = 'court_booking_return'
 
 const PAYMENT_METHODS = [
   { id: 'qr',      name: 'QR Code',        icon: <QrCode size={26} />,       description: 'PromptPay' },
@@ -49,6 +50,26 @@ function Checkout({ booking, onBack, onComplete }) {
   const [payStatus, setPayStatus]           = useState('')
   const [isPollingError, setIsPollingError] = useState(false)
   const [cardInfo, setCardInfoInputs]       = useState({ number: '', name: user.name, expiry: '', cvc: '' })
+
+  const persistBookingReturnState = (chargeData, paymentMethod) => {
+    try {
+      localStorage.setItem(
+        BOOKING_RETURN_STORAGE_KEY,
+        JSON.stringify({
+          bookingId: booking?.id ?? null,
+          chargeId: chargeData?.charge_id || chargeData?.id || null,
+          court: booking?.court?.name || booking?.court || '-',
+          date: booking?.date || '-',
+          time: booking?.time || '-',
+          price,
+          customerName: user?.name || '-',
+          paymentMethod,
+        }),
+      )
+    } catch (error) {
+      console.warn('Unable to persist booking return state:', error)
+    }
+  }
 
   const formatCardNumber = (val) => {
     const v = val.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
@@ -162,6 +183,7 @@ function Checkout({ booking, onBack, onComplete }) {
       if (data.success) {
         setChargeInfo(data);
         if (data.authorize_uri) {
+          persistBookingReturnState(data, 'card')
           window.location.href = data.authorize_uri;
         } else {
           setPaymentSuccess(true);
@@ -522,6 +544,7 @@ function Checkout({ booking, onBack, onComplete }) {
               style={{ width: '100%', background: '#1a1a3a', padding: '16px', borderRadius: '12px', fontSize: '1rem', fontWeight: '700' }}
               onClick={() => {
                 localStorage.removeItem(`charge_${booking.id}`)
+                localStorage.removeItem(BOOKING_RETURN_STORAGE_KEY)
                 const completedPaymentMethod = selectedMethod === 'credit'
                   ? 'card'
                   : selectedMethod === 'qr'

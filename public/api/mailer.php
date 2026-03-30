@@ -363,3 +363,110 @@ if (!function_exists('send_booking_confirmation_email')) {
         }
     }
 }
+
+if (!function_exists('ensure_booking_confirmation_tracking_columns')) {
+    function ensure_booking_confirmation_tracking_columns(PDO $conn) {
+        static $ensured = false;
+
+        if ($ensured) {
+            return;
+        }
+
+        $requiredColumns = [
+            'confirmation_email_status' => "VARCHAR(30) NULL",
+            'confirmation_email_sent_at' => "DATETIME NULL",
+            'confirmation_email_last_error' => "TEXT NULL",
+        ];
+
+        $stmt = $conn->prepare("
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'bookings'
+        ");
+        $stmt->execute();
+        $existingColumns = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+        foreach ($requiredColumns as $column => $definition) {
+            if (in_array($column, $existingColumns, true)) {
+                continue;
+            }
+
+            $conn->exec("ALTER TABLE `bookings` ADD COLUMN `$column` $definition");
+        }
+
+        $ensured = true;
+    }
+}
+
+if (!function_exists('send_booking_confirmation_email_once')) {
+    function send_booking_confirmation_email_once(PDO $conn, array $booking) {
+        $bookingId = (int) ($booking['booking_id'] ?? $booking['id'] ?? 0);
+        $toEmail = trim((string) ($booking['email'] ?? ''));
+
+        if ($bookingId <= 0 || $toEmail === '') {
+            return [
+                'success' => false,
+                'skipped' => true,
+                'reason' => 'missing_booking_or_email',
+            ];
+        }
+
+        ensure_booking_confirmation_tracking_columns($conn);
+
+        $claimStmt = $conn->prepare("
+            UPDATE bookings
+            SET confirmation_email_status = 'processing',
+                confirmation_email_last_error = NULL
+            WHERE id = ?
+              AND COALESCE(confirmation_email_status, '') NOT IN ('processing', 'sent')
+        ");
+        $claimStmt->execute([$bookingId]);
+
+        if ($claimStmt->rowCount() === 0) {
+            $statusStmt = $conn->prepare("
+                SELECT confirmation_email_status, confirmation_email_sent_at
+                FROM bookings
+                WHERE id = ?
+                LIMIT 1
+            ");
+            $statusStmt->execute([$bookingId]);
+            $current = $statusStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            return [
+                'success' => ($current['confirmation_email_status'] ?? '') === 'sent',
+                'skipped' => true,
+                'reason' => $current['confirmation_email_status'] ?? 'already_processed',
+                'sent_at' => $current['confirmation_email_sent_at'] ?? null,
+            ];
+        }
+
+        $payload = $booking;
+        $payload['booking_id'] = $bookingId;
+        $result = send_booking_confirmation_email($toEmail, $payload);
+
+        if (!empty($result['success'])) {
+            $conn->prepare("
+                UPDATE bookings
+                SET confirmation_email_status = 'sent',
+                    confirmation_email_sent_at = NOW(),
+                    confirmation_email_last_error = NULL
+                WHERE id = ?
+            ")->execute([$bookingId]);
+
+            return $result + ['booking_id' => $bookingId];
+        }
+
+        $conn->prepare("
+            UPDATE bookings
+            SET confirmation_email_status = 'failed',
+                confirmation_email_last_error = ?
+            WHERE id = ?
+        ")->execute([
+            $result['error'] ?? 'unknown_error',
+            $bookingId,
+        ]);
+
+        return $result + ['booking_id' => $bookingId];
+    }
+}
