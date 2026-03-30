@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Download, FileSpreadsheet, PieChart, RefreshCw, TrendingUp } from 'lucide-react'
+import { BarChart3, Download, FileSpreadsheet, PieChart, RefreshCw, TrendingUp, Wallet } from 'lucide-react'
 import { api } from '../../services/api'
 import AdminMonthPicker from './AdminMonthPicker'
 
@@ -8,6 +8,7 @@ const getCurrentMonthValue = () => new Date().toLocaleDateString('sv-SE').slice(
 const COURT_CHART_COLORS = ['#1f6b2d', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#ec4899', '#0f766e']
 
 const FALLBACK_CHART_COLORS = ['#1f6b2d', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6']
+const ITEMS_PER_PAGE = 15
 
 const formatMoney = (value) =>
   `฿${Number(value || 0).toLocaleString('th-TH', {
@@ -44,6 +45,20 @@ const getStatusTone = (booking) => {
   return { label: 'Paid', background: '#e6fffa', color: '#2c7a7b' }
 }
 
+const getWalletTopupStatusTone = (status) => {
+  const normalized = (status || '').toString().trim().toLowerCase()
+
+  if (normalized === 'cancelled') {
+    return { label: 'Cancelled', background: '#fff5f5', color: '#c53030' }
+  }
+
+  if (normalized === 'pending') {
+    return { label: 'Pending', background: '#fff9db', color: '#b7791f' }
+  }
+
+  return { label: 'Success', background: '#e6fffa', color: '#2c7a7b' }
+}
+
 const escapeCsv = (value) => {
   const stringValue = String(value ?? '')
   if (/[",\n]/.test(stringValue)) {
@@ -69,6 +84,24 @@ const describePieSlice = (centerX, centerY, radius, startAngle, endAngle) => {
   const largeArcFlag = adjustedEndAngle - startAngle <= 180 ? '0' : '1'
 
   return `M ${centerX} ${centerY} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y} Z`
+}
+
+const ReportPagination = ({ page, totalPages, onPageChange }) => {
+  if (totalPages <= 1) return null
+
+  return (
+    <div className="admin-report-pagination">
+      <button type="button" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
+        Previous
+      </button>
+      <span>
+        Page {page} / {totalPages}
+      </span>
+      <button type="button" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>
+        Next
+      </button>
+    </div>
+  )
 }
 
 const CourtPerformancePieChart = ({ data }) => {
@@ -276,7 +309,9 @@ const DailyRevenueChart = ({ data, metric, onMetricChange }) => {
   const bars = useMemo(
     () =>
       data.map((item, index) => {
-        const value = metric === 'bookings' ? Number(item.paid_bookings || 0) : Number(item.net_revenue || 0)
+        let value = Number(item.net_revenue || 0)
+        if (metric === 'bookings') value = Number(item.paid_bookings || 0)
+        if (metric === 'wallet') value = Number(item.wallet_topup_total || 0)
         return {
           ...item,
           color: FALLBACK_CHART_COLORS[index % FALLBACK_CHART_COLORS.length],
@@ -307,19 +342,33 @@ const DailyRevenueChart = ({ data, metric, onMetricChange }) => {
           >
             Bookings
           </button>
+          <button
+            type="button"
+            className={metric === 'wallet' ? 'active' : ''}
+            onClick={() => onMetricChange('wallet')}
+          >
+            Wallet
+          </button>
         </div>
 
         {activeBar ? (
           <div className="admin-report-tooltip-card compact">
             <div className="admin-report-tooltip-title">{activeBar.day_label}</div>
             <div className="admin-report-tooltip-row">
-              <span>{metric === 'bookings' ? 'Bookings' : 'Net Revenue'}</span>
+              <span>{metric === 'bookings' ? 'Bookings' : metric === 'wallet' ? 'Wallet Top-up' : 'Net Revenue'}</span>
               <strong>{metric === 'bookings' ? Number(activeBar.value).toLocaleString('th-TH') : formatMoney(activeBar.value)}</strong>
             </div>
-            <div className="admin-report-tooltip-row">
-              <span>Gross</span>
-              <strong>{formatMoney(activeBar.gross_revenue)}</strong>
-            </div>
+            {metric === 'wallet' ? (
+              <div className="admin-report-tooltip-row">
+                <span>Transactions</span>
+                <strong>{Number(activeBar.wallet_topup_count || 0).toLocaleString('th-TH')}</strong>
+              </div>
+            ) : (
+              <div className="admin-report-tooltip-row">
+                <span>Gross</span>
+                <strong>{formatMoney(activeBar.gross_revenue)}</strong>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
@@ -379,6 +428,8 @@ const AdminSalesReport = () => {
   const [report, setReport] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [dailyMetric, setDailyMetric] = useState('revenue')
+  const [walletTopupPage, setWalletTopupPage] = useState(1)
+  const [bookingPage, setBookingPage] = useState(1)
 
   const loadReport = async (monthValue, allowOpcacheRecovery = true) => {
     setIsLoading(true)
@@ -412,8 +463,14 @@ const AdminSalesReport = () => {
     void loadReport(selectedMonth)
   }, [selectedMonth])
 
+  useEffect(() => {
+    setWalletTopupPage(1)
+    setBookingPage(1)
+  }, [selectedMonth])
+
   const summaryCards = useMemo(() => {
     const summary = report?.summary || {}
+    const walletSummary = report?.wallet_topup_summary || {}
 
     return [
       {
@@ -436,13 +493,20 @@ const AdminSalesReport = () => {
         value: Number(summary.paid_bookings || 0).toLocaleString('th-TH'),
         tone: { background: '#fff9db', color: '#946200' },
       },
+      {
+        label: 'Wallet Top-ups',
+        value: formatMoney(walletSummary.total_topups),
+        tone: { background: '#eef7ff', color: '#2457c5' },
+      },
     ]
   }, [report])
 
   const chartData = useMemo(() => {
     const bookings = Array.isArray(report?.bookings) ? report.bookings : []
+    const walletTopups = Array.isArray(report?.wallet_topups) ? report.wallet_topups : []
     const fallbackCourt = new Map()
     const fallbackDaily = new Map()
+    const fallbackWalletDaily = new Map()
 
     bookings.forEach((booking) => {
       const status = (booking.status || '').toString().trim().toLowerCase()
@@ -484,17 +548,101 @@ const AdminSalesReport = () => {
       fallbackDaily.set(dayKey, currentDaily)
     })
 
+    walletTopups.forEach((topup) => {
+      const status = (topup.status || '').toString().trim().toLowerCase()
+      const dayKey = (topup.created_at || '').toString().slice(0, 10)
+
+      if (status !== 'paid' || !dayKey) return
+
+      const currentWalletDaily = fallbackWalletDaily.get(dayKey) || {
+        day_key: dayKey,
+        day_label: new Date(dayKey).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+        total_amount: 0,
+        transaction_count: 0,
+      }
+
+      currentWalletDaily.total_amount += Number(topup.amount || 0)
+      currentWalletDaily.transaction_count += 1
+      fallbackWalletDaily.set(dayKey, currentWalletDaily)
+    })
+
     const courtBreakdown = Array.from(fallbackCourt.values()).sort(
       (a, b) => Number(b.total_amount || 0) - Number(a.total_amount || 0),
     )
 
-    const dailyBreakdown =
+    const bookingDailyBreakdown =
       Array.isArray(report?.daily_breakdown) && report.daily_breakdown.length > 0
         ? report.daily_breakdown
         : Array.from(fallbackDaily.values()).sort((a, b) => a.day_key.localeCompare(b.day_key))
 
-    return { courtBreakdown, dailyBreakdown }
+    const walletDailyBreakdown =
+      Array.isArray(report?.wallet_topup_daily_breakdown) && report.wallet_topup_daily_breakdown.length > 0
+        ? report.wallet_topup_daily_breakdown
+        : Array.from(fallbackWalletDaily.values()).sort((a, b) => a.day_key.localeCompare(b.day_key))
+
+    const mergedDaily = new Map()
+
+    bookingDailyBreakdown.forEach((row) => {
+      mergedDaily.set(row.day_key, {
+        day_key: row.day_key,
+        day_label: row.day_label,
+        gross_revenue: Number(row.gross_revenue || 0),
+        refunded_total: Number(row.refunded_total || 0),
+        net_revenue: Number(row.net_revenue || 0),
+        paid_bookings: Number(row.paid_bookings || 0),
+        wallet_topup_total: 0,
+        wallet_topup_count: 0,
+      })
+    })
+
+    walletDailyBreakdown.forEach((row) => {
+      const current = mergedDaily.get(row.day_key) || {
+        day_key: row.day_key,
+        day_label: row.day_label,
+        gross_revenue: 0,
+        refunded_total: 0,
+        net_revenue: 0,
+        paid_bookings: 0,
+        wallet_topup_total: 0,
+        wallet_topup_count: 0,
+      }
+      current.wallet_topup_total = Number(row.total_amount || 0)
+      current.wallet_topup_count = Number(row.transaction_count || 0)
+      mergedDaily.set(row.day_key, current)
+    })
+
+    return {
+      courtBreakdown,
+      dailyBreakdown: Array.from(mergedDaily.values()).sort((a, b) => a.day_key.localeCompare(b.day_key)),
+    }
   }, [report])
+
+  const walletTopups = Array.isArray(report?.wallet_topups) ? report.wallet_topups : []
+  const bookings = Array.isArray(report?.bookings) ? report.bookings : []
+  const walletTopupTotalPages = Math.max(1, Math.ceil(walletTopups.length / ITEMS_PER_PAGE))
+  const bookingTotalPages = Math.max(1, Math.ceil(bookings.length / ITEMS_PER_PAGE))
+
+  const paginatedWalletTopups = useMemo(
+    () => walletTopups.slice((walletTopupPage - 1) * ITEMS_PER_PAGE, walletTopupPage * ITEMS_PER_PAGE),
+    [walletTopupPage, walletTopups],
+  )
+
+  const paginatedBookings = useMemo(
+    () => bookings.slice((bookingPage - 1) * ITEMS_PER_PAGE, bookingPage * ITEMS_PER_PAGE),
+    [bookingPage, bookings],
+  )
+
+  useEffect(() => {
+    if (walletTopupPage > walletTopupTotalPages) {
+      setWalletTopupPage(walletTopupTotalPages)
+    }
+  }, [walletTopupPage, walletTopupTotalPages])
+
+  useEffect(() => {
+    if (bookingPage > bookingTotalPages) {
+      setBookingPage(bookingTotalPages)
+    }
+  }, [bookingPage, bookingTotalPages])
 
   const handleExport = () => {
     if (!report) return
@@ -514,6 +662,13 @@ const AdminSalesReport = () => {
     lines.push(['Cancelled Bookings', report.summary?.cancelled_bookings || 0])
     lines.push(['Average Booking Value', report.summary?.average_booking_value || 0])
     lines.push([])
+    lines.push(['Wallet Top-up Summary'])
+    lines.push(['Metric', 'Value'])
+    lines.push(['Total Top-ups', report.wallet_topup_summary?.total_topups || 0])
+    lines.push(['Successful Top-ups', report.wallet_topup_summary?.paid_topup_count || 0])
+    lines.push(['Average Top-up Value', report.wallet_topup_summary?.average_topup_value || 0])
+    lines.push(['Refund To Wallet', report.wallet_topup_summary?.wallet_refund_total || 0])
+    lines.push([])
     const totalCourtRevenue = (chartData.courtBreakdown || []).reduce((sum, row) => sum + Number(row.total_amount || 0), 0)
 
     lines.push(['Court Breakdown'])
@@ -524,9 +679,38 @@ const AdminSalesReport = () => {
     })
     lines.push([])
     lines.push(['Daily Breakdown'])
-    lines.push(['Day', 'Paid Bookings', 'Gross Sales', 'Refunded', 'Net Revenue'])
+    lines.push(['Day', 'Paid Bookings', 'Gross Sales', 'Refunded', 'Net Revenue', 'Wallet Top-ups', 'Wallet Tx'])
     ;(chartData.dailyBreakdown || []).forEach((row) => {
-      lines.push([row.day_key, row.paid_bookings, row.gross_revenue, row.refunded_total, row.net_revenue])
+      lines.push([
+        row.day_key,
+        row.paid_bookings,
+        row.gross_revenue,
+        row.refunded_total,
+        row.net_revenue,
+        row.wallet_topup_total || 0,
+        row.wallet_topup_count || 0,
+      ])
+    })
+    lines.push([])
+    lines.push(['Wallet Top-up Breakdown'])
+    lines.push(['Payment Method', 'Transactions', 'Total Amount'])
+    ;(report.wallet_topup_breakdown || []).forEach((row) => {
+      lines.push([formatPaymentLabel(row.payment_method), row.transaction_count, row.total_amount])
+    })
+    lines.push([])
+    lines.push(['Wallet Top-up Details'])
+    lines.push(['Transaction ID', 'Created At', 'Customer', 'Phone', 'Payment', 'Status', 'Amount', 'Reference'])
+    ;(report.wallet_topups || []).forEach((topup) => {
+      lines.push([
+        topup.id,
+        topup.created_at || '',
+        topup.user_name || '',
+        topup.user_phone || '',
+        formatPaymentLabel(topup.payment_type),
+        topup.status || '',
+        topup.amount || 0,
+        topup.charge_id || '',
+      ])
     })
     lines.push([])
     lines.push(['Booking Details'])
@@ -572,7 +756,7 @@ const AdminSalesReport = () => {
               <div>
                 <h3 className="admin-report-title">Sales Reports</h3>
                 <p className="admin-report-copy">
-                  Court-by-court revenue mix, daily sales momentum, booking records, and Excel export.
+                  Court-by-court revenue mix, wallet top-ups, daily sales momentum, booking records, and Excel export.
                 </p>
               </div>
             </div>
@@ -632,7 +816,7 @@ const AdminSalesReport = () => {
             <div className="glass-card admin-report-panel">
               <div className="admin-report-panel-head">
                 <BarChart3 size={18} color="var(--accent-primary)" />
-                <h4>Daily Revenue Trend</h4>
+                <h4>Daily Performance Trend</h4>
               </div>
               <DailyRevenueChart data={chartData.dailyBreakdown} metric={dailyMetric} onMetricChange={setDailyMetric} />
             </div>
@@ -664,6 +848,10 @@ const AdminSalesReport = () => {
                 <div className="admin-report-snapshot-row">
                   <span>Top Court</span>
                   <strong>{chartData.courtBreakdown[0]?.court_name || '-'}</strong>
+                </div>
+                <div className="admin-report-snapshot-row">
+                  <span>Wallet Top-ups</span>
+                  <strong>{formatMoney(report.wallet_topup_summary?.total_topups)}</strong>
                 </div>
                 <div className="admin-report-snapshot-row no-border">
                   <span>Top Court Revenue</span>
@@ -715,6 +903,94 @@ const AdminSalesReport = () => {
           <div className="glass-card admin-report-panel">
             <div className="admin-report-records-head">
               <div>
+                <h4>Wallet Top-ups</h4>
+                <p>{Number(report.wallet_topup_summary?.paid_topup_count || 0).toLocaleString('th-TH')} successful top-ups in this report window</p>
+              </div>
+              <Wallet size={18} color="var(--accent-primary)" />
+            </div>
+
+            <div className="admin-report-wallet-overview">
+              <div className="admin-report-wallet-card">
+                <div className="admin-report-eyebrow">Total Top-up Value</div>
+                <div className="admin-report-stat-value">{formatMoney(report.wallet_topup_summary?.total_topups)}</div>
+              </div>
+              <div className="admin-report-wallet-card">
+                <div className="admin-report-eyebrow">Average Top-up</div>
+                <div className="admin-report-stat-value">{formatMoney(report.wallet_topup_summary?.average_topup_value)}</div>
+              </div>
+              <div className="admin-report-wallet-card">
+                <div className="admin-report-eyebrow">Refunded To Wallet</div>
+                <div className="admin-report-stat-value">{formatMoney(report.wallet_topup_summary?.wallet_refund_total)}</div>
+              </div>
+            </div>
+
+            {(report.wallet_topup_breakdown || []).length > 0 ? (
+              <div className="admin-report-chip-row">
+                {report.wallet_topup_breakdown.map((row) => (
+                  <div key={row.payment_method} className="admin-report-method-chip">
+                    <span className="admin-report-method-chip-title">{formatPaymentLabel(row.payment_method)}</span>
+                    <span>{Number(row.transaction_count || 0).toLocaleString('th-TH')} tx</span>
+                    <strong>{formatMoney(row.total_amount)}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="admin-report-table">
+                <thead>
+                  <tr>
+                    <th>Transaction</th>
+                    <th>Customer</th>
+                    <th className="center">Payment</th>
+                    <th className="center">Status</th>
+                    <th className="right">Amount</th>
+                    <th>Created</th>
+                    <th>Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {walletTopups.length > 0 ? (
+                    paginatedWalletTopups.map((topup) => {
+                      const statusTone = getWalletTopupStatusTone(topup.status)
+
+                      return (
+                        <tr key={topup.id}>
+                          <td className="muted strong">#{topup.id}</td>
+                          <td>
+                            <div className="strong">{topup.user_name || '-'}</div>
+                            <div className="admin-report-subtle">{topup.user_phone || '-'}</div>
+                          </td>
+                          <td className="center">
+                            <span className="admin-report-pill payment">{formatPaymentLabel(topup.payment_type)}</span>
+                          </td>
+                          <td className="center">
+                            <span className="admin-report-pill" style={{ background: statusTone.background, color: statusTone.color }}>
+                              {statusTone.label}
+                            </span>
+                          </td>
+                          <td className="right strong blue">{formatMoney(topup.amount)}</td>
+                          <td className="muted">{topup.created_at || '-'}</td>
+                          <td className="admin-report-ref-cell">{topup.charge_id || '-'}</td>
+                        </tr>
+                      )
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="empty">
+                        No wallet top-up transactions in this period.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <ReportPagination page={walletTopupPage} totalPages={walletTopupTotalPages} onPageChange={setWalletTopupPage} />
+          </div>
+
+          <div className="glass-card admin-report-panel">
+            <div className="admin-report-records-head">
+              <div>
                 <h4>Booking Records</h4>
                 <p>{Number(report.bookings?.length || 0).toLocaleString('th-TH')} records in this report window</p>
               </div>
@@ -734,8 +1010,8 @@ const AdminSalesReport = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(report.bookings || []).length > 0 ? (
-                    report.bookings.map((booking) => {
+                  {bookings.length > 0 ? (
+                    paginatedBookings.map((booking) => {
                       const statusTone = getStatusTone(booking)
 
                       return (
@@ -776,6 +1052,7 @@ const AdminSalesReport = () => {
                 </tbody>
               </table>
             </div>
+            <ReportPagination page={bookingPage} totalPages={bookingTotalPages} onPageChange={setBookingPage} />
           </div>
         </>
       ) : (

@@ -518,10 +518,99 @@ switch($requestedAction) {
         $dailyStmt->execute([$period['from'], $period['to']]);
         $dailyRows = $dailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        $walletTopupSummaryStmt = $conn->prepare("
+            SELECT
+                SUM(
+                    CASE
+                        WHEN LOWER(COALESCE(wt.status, '')) = 'paid'
+                         AND LOWER(COALESCE(wt.payment_type, '')) <> 'refund'
+                            THEN COALESCE(wt.amount, 0)
+                        ELSE 0
+                    END
+                ) AS total_topups,
+                SUM(
+                    CASE
+                        WHEN LOWER(COALESCE(wt.status, '')) = 'paid'
+                         AND LOWER(COALESCE(wt.payment_type, '')) <> 'refund'
+                            THEN 1
+                        ELSE 0
+                    END
+                ) AS paid_topup_count,
+                SUM(
+                    CASE
+                        WHEN LOWER(COALESCE(wt.status, '')) = 'paid'
+                         AND LOWER(COALESCE(wt.payment_type, '')) = 'refund'
+                            THEN COALESCE(wt.amount, 0)
+                        ELSE 0
+                    END
+                ) AS wallet_refund_total
+            FROM wallet_transactions wt
+            WHERE DATE(wt.created_at) BETWEEN ? AND ?
+        ");
+        $walletTopupSummaryStmt->execute([$period['from'], $period['to']]);
+        $walletTopupSummary = $walletTopupSummaryStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $walletTopupBreakdownStmt = $conn->prepare("
+            SELECT
+                CASE
+                    WHEN LOWER(COALESCE(wt.payment_type, '')) IN ('credit', 'card') THEN 'card'
+                    WHEN LOWER(COALESCE(wt.payment_type, '')) IN ('promptpay', 'qr') THEN 'promptpay'
+                    ELSE LOWER(COALESCE(wt.payment_type, 'unknown'))
+                END AS payment_method,
+                SUM(COALESCE(wt.amount, 0)) AS total_amount,
+                COUNT(*) AS transaction_count
+            FROM wallet_transactions wt
+            WHERE DATE(wt.created_at) BETWEEN ? AND ?
+              AND LOWER(COALESCE(wt.status, '')) = 'paid'
+              AND LOWER(COALESCE(wt.payment_type, '')) <> 'refund'
+            GROUP BY payment_method
+            ORDER BY total_amount DESC
+        ");
+        $walletTopupBreakdownStmt->execute([$period['from'], $period['to']]);
+        $walletTopupBreakdownRows = $walletTopupBreakdownStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $walletTopupDetailsStmt = $conn->prepare("
+            SELECT
+                wt.id,
+                wt.amount,
+                wt.status,
+                wt.charge_id,
+                wt.payment_type,
+                wt.created_at,
+                u.name AS user_name,
+                u.phone AS user_phone
+            FROM wallet_transactions wt
+            LEFT JOIN users u ON wt.user_id = u.id
+            WHERE DATE(wt.created_at) BETWEEN ? AND ?
+              AND LOWER(COALESCE(wt.payment_type, '')) <> 'refund'
+            ORDER BY wt.created_at DESC
+        ");
+        $walletTopupDetailsStmt->execute([$period['from'], $period['to']]);
+        $walletTopupDetailRows = $walletTopupDetailsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $walletTopupDailyStmt = $conn->prepare("
+            SELECT
+                DATE(wt.created_at) AS day_key,
+                DATE_FORMAT(DATE(wt.created_at), '%d %b') AS day_label,
+                SUM(COALESCE(wt.amount, 0)) AS total_amount,
+                COUNT(*) AS transaction_count
+            FROM wallet_transactions wt
+            WHERE DATE(wt.created_at) BETWEEN ? AND ?
+              AND LOWER(COALESCE(wt.status, '')) = 'paid'
+              AND LOWER(COALESCE(wt.payment_type, '')) <> 'refund'
+            GROUP BY DATE(wt.created_at), DATE_FORMAT(DATE(wt.created_at), '%d %b')
+            ORDER BY day_key ASC
+        ");
+        $walletTopupDailyStmt->execute([$period['from'], $period['to']]);
+        $walletTopupDailyRows = $walletTopupDailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
         $grossRevenue = (float) ($summary['gross_revenue'] ?? 0);
         $refundedTotal = (float) ($summary['refunded_total'] ?? 0);
         $paidBookings = (int) ($summary['paid_bookings'] ?? 0);
         $cancelledBookings = (int) ($summary['cancelled_bookings'] ?? 0);
+        $walletTopupTotal = (float) ($walletTopupSummary['total_topups'] ?? 0);
+        $walletTopupCount = (int) ($walletTopupSummary['paid_topup_count'] ?? 0);
+        $walletRefundTotal = (float) ($walletTopupSummary['wallet_refund_total'] ?? 0);
 
         echo json_encode([
             'period' => $period,
@@ -567,6 +656,28 @@ switch($requestedAction) {
                     'paid_bookings' => (int) ($row['paid_bookings'] ?? 0),
                 ];
             }, $dailyRows),
+            'wallet_topup_summary' => [
+                'total_topups' => $walletTopupTotal,
+                'paid_topup_count' => $walletTopupCount,
+                'average_topup_value' => $walletTopupCount > 0 ? $walletTopupTotal / $walletTopupCount : 0,
+                'wallet_refund_total' => $walletRefundTotal,
+            ],
+            'wallet_topup_breakdown' => array_map(static function ($row) {
+                return [
+                    'payment_method' => $row['payment_method'],
+                    'total_amount' => (float) ($row['total_amount'] ?? 0),
+                    'transaction_count' => (int) ($row['transaction_count'] ?? 0),
+                ];
+            }, $walletTopupBreakdownRows),
+            'wallet_topups' => $walletTopupDetailRows,
+            'wallet_topup_daily_breakdown' => array_map(static function ($row) {
+                return [
+                    'day_key' => $row['day_key'],
+                    'day_label' => $row['day_label'],
+                    'total_amount' => (float) ($row['total_amount'] ?? 0),
+                    'transaction_count' => (int) ($row['transaction_count'] ?? 0),
+                ];
+            }, $walletTopupDailyRows),
             'bookings' => $detailRows,
         ]);
         break;

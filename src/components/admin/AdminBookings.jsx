@@ -169,13 +169,13 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
         </div>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px', fontSize: '0.95rem' }}>
+      <div className="admin-bookings-table-wrap" style={{ overflowX: 'auto' }}>
+        <table className="admin-bookings-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px', fontSize: '0.95rem' }}>
           <thead>
             <tr>
               <th style={{ padding: '16px 20px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Booking ID</th>
               <th style={{ padding: '16px 24px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Customer</th>
-              <th style={{ padding: '16px 24px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Location</th>
+              <th className="admin-bookings-sticky-col" style={{ padding: '16px 24px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Location</th>
               <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Schedule</th>
               <th style={{ padding: '16px 24px', textAlign: 'right', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Price</th>
               <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Payment</th>
@@ -199,7 +199,7 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
                   >
                     {booking.user?.name || booking.name}
                   </td>
-                  <td style={{ padding: '14px 16px' }}>{booking.court}</td>
+                  <td className="admin-bookings-sticky-col" style={{ padding: '14px 16px', fontWeight: '700' }}>{booking.court}</td>
                   <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                     {booking.hour || '00:00'} - {(parseInt(booking.hour || 0, 10) + 1).toString().padStart(2, '0')}:00
                   </td>

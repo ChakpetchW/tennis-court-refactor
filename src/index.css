@@ -226,6 +226,24 @@ input[type="date"]::-webkit-outer-spin-button {
   gap: 16px;
 }
 
+.admin-shell-brand {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.admin-shell-brand h1 {
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.admin-shell-actions {
+  margin-left: auto;
+}
+
+.admin-shell-greeting {
+  color: #667085;
+}
+
 .admin-console-page {
   width: min(1680px, calc(100vw - 32px));
 }
@@ -319,7 +337,7 @@ input[type="date"]::-webkit-outer-spin-button {
 
 .admin-report-stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
 }
 
@@ -644,6 +662,45 @@ input[type="date"]::-webkit-outer-spin-button {
   border-bottom: none;
 }
 
+.admin-report-wallet-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.admin-report-wallet-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f5fbf7 0%, #f7fbff 100%);
+  border: 1px solid #e0ebe3;
+}
+
+.admin-report-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admin-report-method-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: #fbfcfd;
+  border: 1px solid #e8edf0;
+  color: #708089;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.admin-report-method-chip-title {
+  color: #1a1a3a;
+  font-weight: 800;
+}
+
 .admin-report-table {
   width: 100%;
   border-collapse: separate;
@@ -699,11 +756,85 @@ input[type="date"]::-webkit-outer-spin-button {
   color: #2457c5;
 }
 
+.admin-report-ref-cell {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.76rem;
+  color: #708089;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.admin-bookings-table-wrap {
+  position: relative;
+}
+
+.admin-bookings-table {
+  min-width: 960px;
+}
+
+.admin-bookings-table .admin-bookings-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fbfcfd;
+}
+
+.admin-bookings-table thead .admin-bookings-sticky-col {
+  z-index: 4;
+  background: #ffffff;
+}
+
+.admin-allotment-table-wrap {
+  position: relative;
+}
+
+.admin-allotment-table {
+  min-width: 1180px;
+}
+
+.admin-allotment-table .admin-allotment-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #ffffff;
+}
+
+.admin-allotment-table thead .admin-allotment-sticky-col {
+  z-index: 4;
+  background: #f8f9fa;
+}
+
 .admin-report-table .empty,
 .admin-report-empty,
 .admin-report-empty-state {
   text-align: center;
   color: #98a3aa;
+}
+
+.admin-report-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+  color: #6f7d74;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.admin-report-pagination button {
+  border: 1px solid #dbe5de;
+  background: #fff;
+  color: var(--accent-primary);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 800;
+}
+
+.admin-report-pagination button:disabled {
+  color: #9aa6ad;
+  border-color: #e8edf0;
+  cursor: not-allowed;
 }
 
 .admin-report-empty-state {
@@ -765,14 +896,41 @@ input[type="date"]::-webkit-outer-spin-button {
 @media (max-width: 720px) {
   .admin-shell-bar {
     padding: 14px 16px !important;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+  }
+
+  .admin-shell-brand {
+    width: 100%;
+    flex: none;
+  }
+
+  .admin-shell-actions {
+    width: 100%;
+    margin-left: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
   }
 
   .admin-shell-brand h1 {
-    font-size: 1rem !important;
+    font-size: 0.98rem !important;
+    max-width: 13ch;
   }
 
   .admin-shell-greeting {
-    width: 100%;
+    width: auto;
+    min-width: 0;
+    font-size: 0.85rem !important;
+    line-height: 1.25;
+  }
+
+  .admin-shell-logout-btn {
+    min-height: 42px;
+    padding: 10px 14px !important;
+    justify-content: center;
   }
 
   .admin-console-page {
@@ -819,6 +977,22 @@ input[type="date"]::-webkit-outer-spin-button {
   .admin-report-table td {
     padding-left: 10px;
     padding-right: 10px;
+  }
+
+  .admin-report-pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-shell-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell-greeting,
+  .admin-shell-logout-btn {
+    width: 100%;
   }
 }
 

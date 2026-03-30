@@ -72,6 +72,7 @@ function AdminApp() {
           </span>
           <button
             onClick={() => void adminLogout()}
+            className="admin-shell-logout-btn"
             style={{
               background: 'none',
               border: '1px solid #ddd',
