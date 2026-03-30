@@ -120,58 +120,60 @@ const CourtPerformancePieChart = ({ data }) => {
       <div className="admin-report-donut-canvas">
         <div className="admin-report-pie-shell">
           <div className="admin-report-pie-surface">
-            <svg
-              viewBox="0 0 320 320"
-              className="admin-report-pie-svg"
-              onMouseLeave={() => {
-                setHoverTooltip(null)
-                setActiveCourt(null)
-              }}
-            >
-              <defs>
-                <filter id="pieShadow">
-                  <feDropShadow dx="0" dy="18" stdDeviation="14" floodOpacity="0.16" />
-                </filter>
-              </defs>
+            <div className="admin-report-pie-art">
+              <svg
+                viewBox="0 0 320 320"
+                className="admin-report-pie-svg"
+                onMouseLeave={() => {
+                  setHoverTooltip(null)
+                  setActiveCourt(null)
+                }}
+              >
+                <defs>
+                  <filter id="pieShadow">
+                    <feDropShadow dx="0" dy="18" stdDeviation="14" floodOpacity="0.16" />
+                  </filter>
+                </defs>
 
-              <circle cx="160" cy="160" r="132" fill="#eef5ef" />
+                <circle cx="160" cy="160" r="132" fill="#eef5ef" />
 
-              {segments.length === 1 ? (
-                <circle
-                  cx="160"
-                  cy="160"
-                  r="132"
-                  fill={segments[0].color}
-                  filter="url(#pieShadow)"
-                  onMouseEnter={(event) => handleSliceMove(event, segments[0])}
-                  onMouseMove={(event) => handleSliceMove(event, segments[0])}
-                />
-              ) : (
-                segments.map((segment) => {
-                  const isActive = activeCourt?.court_name === segment.court_name
-                  const midAngle = (segment.startAngle + segment.endAngle) / 2
-                  const offset = isActive ? polarToCartesian(0, 0, 6, midAngle) : { x: 0, y: 0 }
+                {segments.length === 1 ? (
+                  <circle
+                    cx="160"
+                    cy="160"
+                    r="132"
+                    fill={segments[0].color}
+                    filter="url(#pieShadow)"
+                    onMouseEnter={(event) => handleSliceMove(event, segments[0])}
+                    onMouseMove={(event) => handleSliceMove(event, segments[0])}
+                  />
+                ) : (
+                  segments.map((segment) => {
+                    const isActive = activeCourt?.court_name === segment.court_name
+                    const midAngle = (segment.startAngle + segment.endAngle) / 2
+                    const offset = isActive ? polarToCartesian(0, 0, 6, midAngle) : { x: 0, y: 0 }
 
-                  return (
-                    <path
-                      key={segment.court_name}
-                      d={describePieSlice(160, 160, 132, segment.startAngle, segment.endAngle)}
-                      fill={segment.color}
-                      filter="url(#pieShadow)"
-                      transform={`translate(${offset.x} ${offset.y})`}
-                      style={{ cursor: 'pointer', transition: 'transform 0.16s ease, opacity 0.16s ease' }}
-                      opacity={activeCourt && !isActive ? 0.88 : 1}
-                      onMouseEnter={(event) => handleSliceMove(event, segment)}
-                      onMouseMove={(event) => handleSliceMove(event, segment)}
-                    />
-                  )
-                })
-              )}
+                    return (
+                      <path
+                        key={segment.court_name}
+                        d={describePieSlice(160, 160, 132, segment.startAngle, segment.endAngle)}
+                        fill={segment.color}
+                        filter="url(#pieShadow)"
+                        transform={`translate(${offset.x} ${offset.y})`}
+                        style={{ cursor: 'pointer', transition: 'transform 0.16s ease, opacity 0.16s ease' }}
+                        opacity={activeCourt && !isActive ? 0.88 : 1}
+                        onMouseEnter={(event) => handleSliceMove(event, segment)}
+                        onMouseMove={(event) => handleSliceMove(event, segment)}
+                      />
+                    )
+                  })
+                )}
 
-              <circle cx="160" cy="160" r="24" fill="rgba(255,255,255,0.35)" pointerEvents="none" />
-            </svg>
+                <circle cx="160" cy="160" r="24" fill="rgba(255,255,255,0.35)" pointerEvents="none" />
+              </svg>
 
-            <div className="admin-report-pie-sheen" />
+              <div className="admin-report-pie-sheen" />
+            </div>
 
             {hoverTooltip?.segment ? (
               <div
