@@ -41,10 +41,10 @@ const getStatusBadge = (booking) => {
   }
 
   if (status === 'pending') {
-    return { label: 'Pending', background: '#fff9db', color: '#f59f00' }
+    return { label: 'Pending (รอชำระ)', background: '#fff9db', color: '#f59f00' }
   }
 
-  return { label: 'Paid', background: '#e6fffa', color: '#2c7a7b' }
+  return { label: 'Paid (ชำระแล้ว)', background: '#e6fffa', color: '#2c7a7b' }
 }
 
 const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
@@ -108,7 +108,7 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
     return (
       <div style={{ textAlign: 'center', padding: '80px 20px', color: '#ccc', background: '#fcfcfc', borderRadius: '16px', border: '2px dashed #eee' }}>
         <div style={{ fontSize: '3rem', marginBottom: '16px', opacity: 0.5 }}>📋</div>
-        <p style={{ fontSize: '1.1rem', fontWeight: '600' }}>No reservations found for this date.</p>
+        <p style={{ fontSize: '1.1rem', fontWeight: '600' }}>No bookings found for the selected date.</p>
       </div>
     )
   }
@@ -118,7 +118,7 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
       <div className="flex-row items-center justify-between wrap gap-md">
         <div className="flex-col gap-xs">
           <h3 style={{ fontSize: '1.4rem', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)', margin: 0 }}>
-            Reservations for {formatDisplayDate(selectedDate)}
+            Booking Log for {formatDisplayDate(selectedDate)}
           </h3>
           <p style={{ margin: 0, fontSize: '0.82rem', color: '#7a7a7a', fontWeight: '600' }}>
             ยกเลิกการจองที่ชำระแล้วจะคืนเงินเข้า Wallet ของสมาชิกอัตโนมัติ
@@ -173,10 +173,10 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
         <table className="admin-bookings-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px', fontSize: '0.95rem' }}>
           <thead>
             <tr>
-              <th style={{ padding: '16px 20px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Booking ID</th>
+              <th style={{ padding: '16px 20px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>ID</th>
               <th style={{ padding: '16px 24px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Customer</th>
-              <th className="admin-bookings-sticky-col" style={{ padding: '16px 24px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Location</th>
-              <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Schedule</th>
+              <th className="admin-bookings-sticky-col" style={{ padding: '16px 24px', textAlign: 'left', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Court (สนาม)</th>
+              <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Time (เวลา)</th>
               <th style={{ padding: '16px 24px', textAlign: 'right', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Price</th>
               <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Payment</th>
               <th style={{ padding: '16px 24px', textAlign: 'center', color: '#888', fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem' }}>Status</th>
@@ -246,7 +246,7 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
                         border: '1px solid #e9ecef',
                         whiteSpace: 'nowrap',
                       }}>
-                        {booking.refund_status === 'Refunded' ? 'Refunded to Wallet' : 'Cancelled'}
+                        {booking.refund_status === 'Refunded' ? 'Refunded (คืนคุณวอลเล็ตแล้ว)' : 'Cancelled'}
                       </span>
                     ) : (
                       <button
@@ -263,7 +263,7 @@ const AdminBookings = ({ selectedDate, onActiveUserFilter }) => {
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {cancellingBookingId === booking.id ? 'Processing...' : 'Cancel + Refund to Wallet'}
+                        {cancellingBookingId === booking.id ? 'Refunding...' : 'Cancel & Refund to Wallet'}
                       </button>
                     )}
                   </td>

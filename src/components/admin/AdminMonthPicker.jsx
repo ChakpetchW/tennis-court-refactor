@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
 
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
 const parseMonthValue = (value) => {
   const match = /^(\d{4})-(\d{2})$/.exec(value || '')
@@ -107,12 +107,12 @@ const AdminMonthPicker = ({ value, onChange }) => {
           </div>
           <div style={{ minWidth: 0, textAlign: 'left' }}>
             <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7f8d84', fontWeight: '800' }}>
-              Report Month
+              Select Month (เลือกเดือน)
             </div>
             <div style={{ marginTop: '2px', fontSize: '1rem', fontWeight: '800', color: '#1a1a3a' }}>{getDisplayLabel(value)}</div>
           </div>
         </div>
-        <div style={{ color: '#6d7b71', fontWeight: '700', fontSize: '0.8rem' }}>{isOpen ? 'Close' : 'Select'}</div>
+        <div style={{ color: '#6d7b71', fontWeight: '700', fontSize: '0.8rem' }}>{isOpen ? 'Close' : 'Pick'}</div>
       </button>
 
       {isOpen ? (
@@ -120,7 +120,7 @@ const AdminMonthPicker = ({ value, onChange }) => {
           style={{
             position: 'absolute',
             top: 'calc(100% + 12px)',
-            left: 0,
+            right: 0,
             width: '320px',
             padding: '18px',
             borderRadius: '24px',
@@ -146,7 +146,7 @@ const AdminMonthPicker = ({ value, onChange }) => {
               <ChevronLeft size={18} />
             </button>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '0.72rem', color: '#829089', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>Year</div>
+              <div style={{ fontSize: '0.72rem', color: '#829089', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>Selected Year</div>
               <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#1a1a3a', marginTop: '2px' }}>{viewYear}</div>
             </div>
             <button
@@ -204,7 +204,7 @@ const AdminMonthPicker = ({ value, onChange }) => {
                 fontWeight: '800',
               }}
             >
-              This month
+              Current Month (เดือนปัจจุบัน)
             </button>
             <button
               type="button"
@@ -219,7 +219,7 @@ const AdminMonthPicker = ({ value, onChange }) => {
                 fontWeight: '800',
               }}
             >
-              Close
+              Done (ตกลง)
             </button>
           </div>
         </div>

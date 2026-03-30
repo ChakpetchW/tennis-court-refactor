@@ -8,9 +8,9 @@ const OMISE_PUBLIC_KEY = import.meta.env.VITE_OMISE_PUBLIC_KEY || ''
 const BOOKING_RETURN_STORAGE_KEY = 'court_booking_return'
 
 const PAYMENT_METHODS = [
-  { id: 'qr',      name: 'QR Code',        icon: <QrCode size={26} />,       description: 'PromptPay' },
-  { id: 'wallet',  name: 'Wallet',          icon: <Wallet size={26} />,       description: 'Balance' },
-  { id: 'credit',  name: 'Credit/Debit',   icon: <CreditCard size={26} />,   description: 'Visa/Master' },
+  { id: 'qr',      name: 'Thai QR PromptPay',        icon: <QrCode size={26} />,       description: 'Scan & Pay' },
+  { id: 'wallet',  name: 'My Wallet (วอลเล็ต)',          icon: <Wallet size={26} />,       description: 'Balance' },
+  { id: 'credit',  name: 'Credit / Debit Card',   icon: <CreditCard size={26} />,   description: 'Visa/Master' },
 ]
 
 function Checkout({ booking, onBack, onComplete }) {
@@ -21,6 +21,20 @@ function Checkout({ booking, onBack, onComplete }) {
   const [isProcessing, setIsProcessing]     = useState(false)
   const [showPaymentFlow, setShowPaymentFlow] = useState(false)
   const [agreed, setAgreed]                 = useState(false)
+  const [paymentStep, setPaymentStep]       = useState(() => {
+    try {
+      const saved = localStorage.getItem(`charge_${booking.id}`)
+      return saved ? 'qr' : 'idle'
+    } catch { return 'idle' }
+  }) // idle | processing | qr | success
+
+  // Scroll to top on view change (UX for mobile)
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [showPaymentFlow, paymentStep])
+  const [payStatus, setPayStatus]           = useState('')
+  const [isPollingError, setIsPollingError] = useState(false)
+  const [cardInfo, setCardInfoInputs]       = useState({ number: '', name: user.name, expiry: '', cvc: '' })
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [chargeInfo, setChargeInfo]         = useState(() => {
     try {
@@ -33,23 +47,12 @@ function Checkout({ booking, onBack, onComplete }) {
   useEffect(() => {
     if (chargeInfo) {
       localStorage.setItem(`charge_${booking.id}`, JSON.stringify(chargeInfo))
-      // If we have chargeInfo, we should probably be in the payment flow
       if (chargeInfo.qr_code_uri) {
         setShowPaymentFlow(true)
         setPaymentStep('qr')
       }
     }
   }, [chargeInfo, booking.id])
-
-  const [paymentStep, setPaymentStep]       = useState(() => {
-    try {
-      const saved = localStorage.getItem(`charge_${booking.id}`)
-      return saved ? 'qr' : 'idle'
-    } catch { return 'idle' }
-  }) // idle | processing | qr | success
-  const [payStatus, setPayStatus]           = useState('')
-  const [isPollingError, setIsPollingError] = useState(false)
-  const [cardInfo, setCardInfoInputs]       = useState({ number: '', name: user.name, expiry: '', cvc: '' })
 
   const persistBookingReturnState = (chargeData, paymentMethod) => {
     try {
@@ -96,9 +99,7 @@ function Checkout({ booking, onBack, onComplete }) {
   }, [timeLeft])
 
   useEffect(() => {
-    if (!paymentSuccess) return
-
-    window.scrollTo({ top: 0, behavior: 'auto' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [paymentSuccess])
 
   // Polling for payment status
@@ -315,10 +316,13 @@ function Checkout({ booking, onBack, onComplete }) {
         <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '700', fontSize: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ background: 'var(--accent-secondary)', color: 'var(--accent-primary)', padding: '4px 12px', borderRadius: '6px', fontSize: '0.9rem' }}>#{booking?.id || '...'}</span>
-              <span>ยืนยันการจองสนาม</span>
+              <span style={{ background: 'var(--accent-secondary)', color: 'var(--accent-primary)', padding: '4px 12px', borderRadius: '6px', fontSize: '0.9rem', fontWeight: '800' }}>#{booking?.id || '...'}</span>
+              <div className="flex-col">
+                <span style={{ fontSize: '1.2rem', fontWeight: '800' }}>ยืนยันการจองสนาม</span>
+                <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>BOOKING CONFIRMATION</span>
+              </div>
             </div>
-            <span style={{ fontSize: '0.85rem', opacity: 0.9, letterSpacing: '0.05em' }}>รายการจองชั่วคราว</span>
+            <span style={{ fontSize: '0.85rem', opacity: 0.9, letterSpacing: '0.05em', fontWeight: '600' }}>รายการจองชั่วคราว</span>
           </div>
           
           <div style={{ padding: '32px', background: '#fff' }}>
@@ -359,7 +363,10 @@ function Checkout({ booking, onBack, onComplete }) {
           <div className="booking-layout-grid">
             <div className="flex-col gap-lg">
               <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden', border: '1px solid #eee' }}>
-                <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '700', fontSize: '1.1rem' }}>ช่องทางการชำระเงิน</div>
+                <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', fontSize: '1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>ช่องทางการชำระเงิน</span>
+                  <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>PAYMENT METHODS</span>
+                </div>
                 <div style={{ padding: '24px', background: '#fff', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {PAYMENT_METHODS.map(m => (
                     <div key={m.id} className="flex-col gap-sm">
@@ -370,7 +377,7 @@ function Checkout({ booking, onBack, onComplete }) {
                       }}>
                         <div style={{ color: selectedMethod === m.id ? 'var(--accent-primary)' : '#999' }}>{m.icon}</div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '1.1rem', fontWeight: '700', fontFamily: 'var(--font-heading)' }}>{m.id === 'qr' ? 'PromptPay QR' : m.id === 'wallet' ? 'วอลเล็ต' : 'บัตรเครดิต/เดบิต'}</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '700', fontFamily: 'var(--font-heading)' }}>{m.name}</div>
                           <div style={{ fontSize: '0.85rem', color: '#666' }}>
                             {m.id === 'qr' ? 'สแกนจ่ายด้วยแอปธนาคาร' : 
                             m.id === 'wallet' ? (
@@ -451,22 +458,37 @@ function Checkout({ booking, onBack, onComplete }) {
 
             <div style={{ position: 'sticky', top: '100px', height: 'fit-content', minWidth: '350px' }}>
               <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-                <div style={{ padding: '20px 24px', background: '#f8f9fa', borderBottom: '1px solid #eee', fontWeight: '700', fontSize: '1.1rem' }}>สรุปรายการ</div>
+                <div style={{ padding: '20px 24px', background: '#f8f9fa', borderBottom: '1px solid #eee', fontWeight: '800', fontSize: '1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>ยอดสรุป</span>
+                  <span style={{ fontSize: '0.75rem', color: '#999' }}>SUMMARY</span>
+                </div>
                 <div style={{ padding: '24px', background: '#fff', color: '#333' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '1rem' }}>
-                    <span style={{ color: '#666' }}>ค่าจองสนาม</span><span style={{ fontWeight: '700' }}>฿{Math.floor(price).toLocaleString()}</span>
+                    <div className="flex-col">
+                      <span style={{ color: '#666', fontSize: '0.9rem' }}>ค่าจองสนาม</span>
+                      <span style={{ fontSize: '0.7rem', color: '#bbb' }}>COURT FEE</span>
+                    </div>
+                    <span style={{ fontWeight: '700' }}>฿{Math.floor(price).toLocaleString()}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '1rem' }}>
-                    <span style={{ color: '#666' }}>ช่องทางการชำระ</span><span style={{ fontWeight: '700' }}>{selectedMethod === 'qr' ? 'PromptPay' : selectedMethod === 'wallet' ? 'Wallet' : 'Credit Card'}</span>
+                    <div className="flex-col">
+                      <span style={{ color: '#666', fontSize: '0.9rem' }}>ช่องทางการชำระ</span>
+                      <span style={{ fontSize: '0.7rem', color: '#bbb' }}>PAYMENT METHOD</span>
+                    </div>
+                    <span style={{ fontWeight: '700' }}>{selectedMethod === 'qr' ? 'PromptPay' : selectedMethod === 'wallet' ? 'My Wallet' : 'Credit Card'}</span>
                   </div>
                   <div style={{ borderTop: '2px dashed #eee', margin: '20px 0', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.4rem' }}>
-                    <span>ยอดชำระสุทธิ</span><span style={{ color: 'var(--accent-primary)' }}>฿{Math.floor(price).toLocaleString()}</span>
+                    <div className="flex-col">
+                      <span>ยอดชำระสุทธิ</span>
+                      <span style={{ fontSize: '0.75rem', color: '#888', fontWeight: '400' }}>TOTAL AMOUNT</span>
+                    </div>
+                    <span style={{ color: 'var(--accent-primary)', fontSize: '1.8rem', fontFamily: 'var(--font-heading)' }}>฿{Math.floor(price).toLocaleString()}</span>
                   </div>
-                  <button className="premium-button" style={{ width: '100%', padding: '20px' }} onClick={handlePay} disabled={isProcessing}>
-                    {isProcessing ? (payStatus || 'กำลังประมวลผล...') : 'ชำระเงินทันที'}
+                  <button className="premium-button" style={{ width: '100%', padding: '20px', fontWeight: '800' }} onClick={handlePay} disabled={isProcessing}>
+                    {isProcessing ? (payStatus || 'กำลังประมวลผล...') : 'ชำระเงินทันที (Pay Now)'}
                   </button>
-                  <button onClick={onBack} style={{ width: '100%', marginTop: '12px', background: 'none', border: 'none', color: '#666', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
-                    ย้อนกลับ
+                  <button onClick={onBack} style={{ width: '100%', marginTop: '12px', background: 'none', border: 'none', color: '#888', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem' }}>
+                    ย้อนกลับ (Back)
                   </button>
                 </div>
               </div>
@@ -474,10 +496,13 @@ function Checkout({ booking, onBack, onComplete }) {
           </div>
         ) : (
           <div className="glass-card flex-col fade-in" style={{ background: '#fff', overflow: 'hidden', maxWidth: '500px', margin: '0 auto', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
-            <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                 <QrCode size={20} /> สแกนจ่าย PromptPay
-              </span>
+            <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="flex-col">
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem' }}>
+                  <QrCode size={20} /> ชำระด้วย PromptPay
+                </span>
+                <span style={{ fontSize: '0.7rem', opacity: 0.8, marginLeft: '28px' }}>SECURE QR PAYMENT</span>
+              </div>
               <button onClick={() => setShowPaymentFlow(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
                 <ChevronLeft size={20} />
               </button>
@@ -530,14 +555,30 @@ function Checkout({ booking, onBack, onComplete }) {
             }}>
               <CheckCircle2 size={40} color="#fff" />
             </div>
-            <h2 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#1a1a3a', marginBottom: '8px' }}>จองสำเร็จ! 🎉</h2>
-            <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '20px' }}>ระบบยืนยันการจองและรับชำระเงินเรียบร้อยแล้ว</p>
-            <div style={{ background: '#f8fffe', borderRadius: '12px', padding: '16px', marginBottom: '24px', textAlign: 'left', fontSize: '0.9rem', lineHeight: '2' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#666' }}>สนาม</span><strong>{booking?.court?.name || booking?.court}</strong></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#666' }}>วันที่</span><strong>{booking?.date}</strong></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#666' }}>เวลา</span><strong>{booking?.time}</strong></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#666' }}>ชื่อผู้จอง</span><strong style={{ maxWidth: '45%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</strong></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#666' }}>ยอดชำระ</span><strong style={{ color: '#00b894' }}>฿{price.toFixed(2)}</strong></div>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: '900', color: '#1a1a3a', marginBottom: '4px' }}>การจองสำเร็จเแล้ว! 🎉</h2>
+            <p style={{ color: '#00b894', fontSize: '0.95rem', fontWeight: '700', marginBottom: '24px' }}>BOOKING CONFIRMED</p>
+            
+            <div style={{ background: '#f8fffe', borderRadius: '12px', padding: '20px', marginBottom: '24px', textAlign: 'left', fontSize: '0.95rem', lineHeight: '2.2', border: '1px solid #e6fffa' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#888' }}>สนาม (COURT)</span>
+                <strong style={{ color: '#333' }}>{booking?.court?.name || booking?.court}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#888' }}>วันที่ (DATE)</span>
+                <strong style={{ color: '#333' }}>{booking?.date}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#888' }}>เวลา (TIME)</span>
+                <strong style={{ color: '#333' }}>{booking?.time}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#888' }}>ผู้จอง (CUSTOMER)</span>
+                <strong style={{ maxWidth: '45%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#333' }}>{user?.name}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', borderTop: '1px dashed #eee', paddingTop: '8px' }}>
+                <span style={{ color: '#888', fontWeight: '700' }}>ยอดชำระ (TOTAL)</span>
+                <strong style={{ color: '#00b894', fontSize: '1.2rem' }}>฿{price.toFixed(2)}</strong>
+              </div>
             </div>
             <button
               className="premium-button"

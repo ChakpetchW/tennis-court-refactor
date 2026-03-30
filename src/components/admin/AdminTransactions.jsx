@@ -5,7 +5,7 @@ const renderTypeBadge = (type) => {
 
   if (normalized === 'refund') {
     return {
-      label: 'Refund to Wallet',
+      label: 'Refund (คืนเงินวอลเล็ต)',
       background: '#fff0f6',
       color: '#a61e4d',
     }
@@ -103,7 +103,7 @@ const AdminTransactions = ({ transactions }) => {
   return (
     <div className="flex-col gap-md">
       <div className="flex-col gap-xs">
-        <h3 style={{ fontSize: '1.4rem', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)', marginBottom: '4px' }}>Wallet Transactions</h3>
+        <h3 style={{ fontSize: '1.4rem', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)', marginBottom: '4px' }}>Wallet Transaction History</h3>
         <p style={{ margin: 0, color: '#7a7a7a', fontSize: '0.9rem', fontWeight: '600' }}>
           รวมรายการเติมเงินและเครดิตคืนเงินเข้ากระเป๋า Wallet
         </p>

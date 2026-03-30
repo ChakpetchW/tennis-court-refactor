@@ -234,18 +234,18 @@ const CourtPerformancePieChart = ({ data }) => {
           </div>
 
           <div className="admin-report-tooltip-card admin-report-pie-summary">
-            <div className="admin-report-tooltip-title">Court Revenue Mix</div>
+            <div className="admin-report-tooltip-title">Revenue by Court (สัดส่วนรายได้)</div>
             <div className="admin-report-tooltip-row">
-              <span>Total Revenue</span>
+              <span>Total Paid (ยอดรวมชำระเงิน)</span>
               <strong>{formatMoney(totalRevenue)}</strong>
             </div>
             <div className="admin-report-tooltip-row">
               <span>Paid Bookings</span>
-              <strong>{Number(totalBookings || 0).toLocaleString('th-TH')}</strong>
+              <strong>{Number(totalBookings || 0).toLocaleString('th-TH')} ครั้ง</strong>
             </div>
             <div className="admin-report-tooltip-row">
               <span>Basis</span>
-              <strong>Revenue share = 100%</strong>
+              <strong>Distribution of total court earnings.</strong>
             </div>
           </div>
         </div>
@@ -474,27 +474,27 @@ const AdminSalesReport = () => {
 
     return [
       {
-        label: 'Gross Sales',
+        label: 'Gross Revenue (รายได้รวมการจอง)',
         value: formatMoney(summary.gross_revenue),
         tone: { background: '#eefaf3', color: '#1f7a45' },
       },
       {
-        label: 'Net Revenue',
+        label: 'Net Revenue (รายได้สุทธิ)',
         value: formatMoney(summary.net_revenue),
         tone: { background: '#eef4ff', color: '#2457c5' },
       },
       {
-        label: 'Refunded',
+        label: 'Refunded (ยอดคืนเงิน)',
         value: formatMoney(summary.refunded_total),
         tone: { background: '#fff5f5', color: '#c53030' },
       },
       {
-        label: 'Paid Bookings',
-        value: Number(summary.paid_bookings || 0).toLocaleString('th-TH'),
+        label: 'Completed Bookings (จองสำเร็จ)',
+        value: `${Number(summary.paid_bookings || 0).toLocaleString('th-TH')} ครั้ง`,
         tone: { background: '#fff9db', color: '#946200' },
       },
       {
-        label: 'Wallet Top-ups',
+        label: 'Wallet Top-ups (ยอดเติมเงิน)',
         value: formatMoney(walletSummary.total_topups),
         tone: { background: '#eef7ff', color: '#2457c5' },
       },
@@ -754,9 +754,9 @@ const AdminSalesReport = () => {
                 <BarChart3 size={24} />
               </div>
               <div>
-                <h3 className="admin-report-title">Sales Reports</h3>
+                <h3 className="admin-report-title">Revenue Dashboard (แดชบอร์ดรายรับ)</h3>
                 <p className="admin-report-copy">
-                  Court-by-court revenue mix, wallet top-ups, daily sales momentum, booking records, and Excel export.
+                  Detailed court-by-court revenue analysis, wallet circulation, daily momentum, and secure booking records.
                 </p>
               </div>
             </div>
@@ -771,7 +771,7 @@ const AdminSalesReport = () => {
               className="secondary-button admin-report-toolbar-btn"
             >
               <RefreshCw size={16} className={isLoading ? 'spin-animation' : ''} />
-              {isLoading ? 'Refreshing...' : 'Refresh'}
+              {isLoading ? 'Updating...' : 'Update Data'}
             </button>
 
             <button
@@ -780,7 +780,7 @@ const AdminSalesReport = () => {
               className="premium-button admin-report-toolbar-btn"
             >
               <Download size={16} />
-              Export Excel CSV
+              Download Report (CSV)
             </button>
           </div>
         </div>

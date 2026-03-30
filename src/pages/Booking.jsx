@@ -38,6 +38,11 @@ function Booking({ onBack, onCheckout }) {
     return nextDates
   }, [])
 
+  // Scroll to top on step change (UX for mobile)
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [step])
+
   // Refresh rates when entering booking and while the page stays open,
   // so admin price changes propagate without a full browser refresh.
   useEffect(() => {
@@ -102,8 +107,9 @@ function Booking({ onBack, onCheckout }) {
   return (
     <div className="fade-in" style={{ paddingBottom: '120px' }}>
       {/* Step Indicator */}
-      <div className="step-indicator-bar" style={{ background: 'var(--accent-primary)', color: '#fff' }}>
-        ขั้นตอน {step}/2 — {step === 1 ? 'เลือกวันและเวลา' : 'ยืนยันการจอง'}
+      <div className="step-indicator-bar" style={{ background: 'var(--accent-primary)', color: '#fff', fontSize: '1rem', fontWeight: '800', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+        <span style={{ opacity: 0.8 }}>ความคืบหน้า (Step) {step}/2 —</span>
+        <span>{step === 1 ? 'เลือกวันและเวลาที่จอง' : 'ยืนยันข้อมูลการจอง'}</span>
       </div>
 
       <div className="container-wide" style={{ marginTop: '32px' }}>
@@ -113,7 +119,10 @@ function Booking({ onBack, onCheckout }) {
             <div className="glass-card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
                 <CalendarIcon size={22} color="var(--accent-primary)" />
-                <h3 style={{ fontSize: '1.4rem' }}>เลือกวันที่</h3>
+                <div className="flex-col">
+                  <h3 style={{ fontSize: '1.4rem', margin: 0 }}>เลือกวันที่</h3>
+                  <p style={{ fontSize: '0.78rem', color: '#888', margin: 0 }}>Select Booking Date</p>
+                </div>
               </div>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <button
@@ -171,7 +180,10 @@ function Booking({ onBack, onCheckout }) {
               <div className="flex-col gap-lg">
                 <div className="glass-card" style={{ padding: '0', overflow: 'hidden', background: '#005859', color: '#fff' }}>
                   <div style={{ padding: '20px 24px', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '1.2rem', color: '#fff' }}>Select Court</h3>
+                    <div className="flex-col">
+                      <h3 style={{ fontSize: '1.2rem', color: '#fff', margin: 0 }}>เลือกสนาม</h3>
+                      <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', margin: 0 }}>Select Court</p>
+                    </div>
                     <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <MapPin size={16} /> Tennis Court
                     </div>
@@ -337,7 +349,10 @@ function Booking({ onBack, onCheckout }) {
                 <div className="glass-card" style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
                     <Clock size={22} color="var(--accent-primary)" />
-                    <h3 style={{ fontSize: '1.4rem' }}>เลือกเวลา</h3>
+                    <div className="flex-col">
+                      <h3 style={{ fontSize: '1.4rem', margin: 0 }}>เลือกเวลา</h3>
+                      <p style={{ fontSize: '0.78rem', color: '#888', margin: 0 }}>Select Time (1 Hour)</p>
+                    </div>
                   </div>
 
                   <div className="time-slot-grid" style={{ marginBottom: '32px' }}>
@@ -387,7 +402,7 @@ function Booking({ onBack, onCheckout }) {
                     onClick={handleNextStep}
                     style={{ width: '100%', marginTop: 'auto' }}
                   >
-                    ถัดไป
+                    ดำเนินการต่อ (Next)
                   </button>
                 </div>
               </div>
@@ -398,34 +413,47 @@ function Booking({ onBack, onCheckout }) {
         {step === 2 && (
           <div className="flex-col gap-lg fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
             <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden' }}>
-              <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '700', fontSize: '1.2rem' }}>
+              <div style={{ padding: '20px 24px', background: 'var(--accent-primary)', color: '#fff', fontWeight: '800', fontSize: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 สรุปรายการจอง
+                <span style={{ fontSize: '0.8rem', opacity: 0.8, letterSpacing: '1px' }}>BOOKING SUMMARY</span>
               </div>
               <div style={{ padding: '32px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
-                    <span style={{ color: '#666' }}>สนาม</span>
-                    <strong style={{ fontSize: '1.1rem' }}>{selectedCourt?.name} ({selectedCourt?.type})</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f2f2f2', paddingBottom: '12px' }}>
+                    <div className="flex-col">
+                      <span style={{ color: '#888', fontSize: '0.82rem', textTransform: 'uppercase' }}>สนาม</span>
+                      <span style={{ fontSize: '0.7rem', color: '#bbb' }}>COURT</span>
+                    </div>
+                    <strong style={{ fontSize: '1.1rem', textAlign: 'right' }}>{selectedCourt?.name} ({selectedCourt?.type})</strong>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
-                    <span style={{ color: '#666' }}>วันที่</span>
-                    <strong style={{ fontSize: '1.1rem' }}>{selectedDate}</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f2f2f2', paddingBottom: '12px' }}>
+                    <div className="flex-col">
+                      <span style={{ color: '#888', fontSize: '0.82rem', textTransform: 'uppercase' }}>วันที่</span>
+                      <span style={{ fontSize: '0.7rem', color: '#bbb' }}>DATE</span>
+                    </div>
+                    <strong style={{ fontSize: '1.1rem', textAlign: 'right' }}>{selectedDate}</strong>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
-                    <span style={{ color: '#666' }}>เวลา</span>
-                    <strong style={{ fontSize: '1.1rem' }}>{selectedTime}</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f2f2f2', paddingBottom: '12px' }}>
+                    <div className="flex-col">
+                      <span style={{ color: '#888', fontSize: '0.82rem', textTransform: 'uppercase' }}>เวลา</span>
+                      <span style={{ fontSize: '0.7rem', color: '#bbb' }}>TIME</span>
+                    </div>
+                    <strong style={{ fontSize: '1.1rem', textAlign: 'right' }}>{selectedTime}</strong>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px' }}>
-                    <span style={{ color: '#666' }}>ราคาสุทธิ</span>
-                    <strong style={{ fontSize: '1.5rem', color: 'var(--accent-primary)' }}>฿{Math.floor(Number(selectedCourt?.price_per_hour || selectedCourt?.rate || 0)).toLocaleString('th-TH')}</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px' }}>
+                    <div className="flex-col">
+                      <span style={{ color: '#333', fontSize: '1rem', fontWeight: '800' }}>ราคาสุทธิ</span>
+                      <span style={{ fontSize: '0.75rem', color: '#888' }}>TOTAL AMOUNT</span>
+                    </div>
+                    <strong style={{ fontSize: '2rem', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>฿{Math.floor(Number(selectedCourt?.price_per_hour || selectedCourt?.rate || 0)).toLocaleString('th-TH')}</strong>
                   </div>
                 </div>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '16px' }}>
-              <button className="secondary-button" style={{ flex: 1, padding: '18px' }} onClick={() => setStep(1)}>แก้ไขการจอง</button>
-              <button className="premium-button" style={{ flex: 2 }} onClick={handleNextStep}>ยืนยันและชำระเงิน</button>
+              <button className="secondary-button" style={{ flex: 1, padding: '18px', fontWeight: '700' }} onClick={() => setStep(1)}>แก้ไข (Modify)</button>
+              <button className="premium-button" style={{ flex: 2, fontWeight: '800' }} onClick={handleNextStep}>ยืนยันและชำระเงิน (Secure Checkout)</button>
             </div>
           </div>
         )}
@@ -433,8 +461,8 @@ function Booking({ onBack, onCheckout }) {
 
       {step === 1 && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '24px', background: '#fff', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'center', zIndex: 100, boxShadow: '0 -10px 30px rgba(0,0,0,0.05)' }}>
-          <button className="secondary-button" onClick={onBack} style={{ maxWidth: '400px', width: '100%', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <ChevronLeft size={20} /> กลับไปหน้าหลัก
+          <button className="secondary-button" onClick={onBack} style={{ maxWidth: '400px', width: '100%', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontWeight: '700' }}>
+            <ChevronLeft size={20} /> กลับไปหน้าหลัก (Go Back)
           </button>
         </div>
       )}

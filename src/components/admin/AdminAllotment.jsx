@@ -31,7 +31,7 @@ const AdminAllotment = ({ selectedDate }) => {
         <table className="admin-allotment-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #eee' }}>
-              <th className="admin-allotment-sticky-col" style={{ textAlign: 'left', padding: '24px 32px', minWidth: '150px', fontSize: '1.2rem', fontFamily: 'var(--font-heading)', color: 'var(--accent-primary)' }}>VENUE</th>
+              <th className="admin-allotment-sticky-col" style={{ textAlign: 'left', padding: '24px 32px', minWidth: '150px', fontSize: '1.2rem', fontFamily: 'var(--font-heading)', color: 'var(--accent-primary)' }}>Field / Court (สนาม)</th>
               {TIME_SLOTS.map(h => (
                 <th key={h} style={{ padding: '16px', minWidth: '100px', textAlign: 'center', fontWeight: '800', fontSize: '0.9rem', color: '#888' }}>{h}</th>
               ))}
@@ -72,7 +72,7 @@ const AdminAllotment = ({ selectedDate }) => {
                             transition: 'all 0.2s'
                           }}
                         >
-                          {slot.isOpen ? 'AVAILABLE' : 'BLOCKED'}
+                          {slot.isOpen ? 'OPEN (เปิด)' : 'CLOSED (ปิด)'}
                         </div>
                       )}
                     </div>
