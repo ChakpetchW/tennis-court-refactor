@@ -5,7 +5,7 @@ import { TIME_SLOTS } from '../data/constants'
 import { useApp } from '../hooks/useApp'
 
 function Booking({ onBack, onCheckout }) {
-  const { courts, fetchStatus } = useApp()
+  const { courts, fetchStatus, fetchCourtsMetadata } = useApp()
   const [step, setStep] = useState(1)
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('sv-SE'))
   const [selectedCourtId, setSelectedCourtId] = useState(null)
@@ -38,6 +38,33 @@ function Booking({ onBack, onCheckout }) {
     return nextDates
   }, [])
 
+  // Refresh rates when entering booking and while the page stays open,
+  // so admin price changes propagate without a full browser refresh.
+  useEffect(() => {
+    void fetchCourtsMetadata()
+
+    const syncLatestRates = () => {
+      void fetchCourtsMetadata()
+    }
+
+    const intervalId = window.setInterval(syncLatestRates, 60000)
+    window.addEventListener('focus', syncLatestRates)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncLatestRates()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', syncLatestRates)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [fetchCourtsMetadata])
+
   // Fetch status whenever date changes
   useEffect(() => {
     if (fetchStatus) fetchStatus(selectedDate)
@@ -51,13 +78,25 @@ function Booking({ onBack, onCheckout }) {
     }
   }
 
-  const confirmBooking = () => {
+  const confirmBooking = async () => {
     const bookingId = Math.floor(Math.random() * 90000) + 10000
     const now = new Date()
     const stamp = now.getFullYear().toString() + (now.getMonth() + 1).toString().padStart(2, '0') + now.getDate().toString().padStart(2, '0') + now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0')
     const bookingNo = `SPORTS-${stamp}`
-    const price = Number(selectedCourt?.price_per_hour || selectedCourt?.rate || 0)
-    onCheckout({ id: bookingId, bookingNo, court: selectedCourt, date: selectedDate, time: selectedTime, price })
+    const latestRates = await fetchCourtsMetadata()
+    const latestRate = Array.isArray(latestRates)
+      ? latestRates.find((court) => Number(court.id) === Number(selectedCourtId))
+      : null
+    const price = Number(latestRate?.rate || latestRate?.price_per_hour || selectedCourt?.price_per_hour || selectedCourt?.rate || 0)
+
+    onCheckout({
+      id: bookingId,
+      bookingNo,
+      court: selectedCourt ? { ...selectedCourt, price_per_hour: price, rate: price } : selectedCourt,
+      date: selectedDate,
+      time: selectedTime,
+      price,
+    })
   }
 
   return (

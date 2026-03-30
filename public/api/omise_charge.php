@@ -14,6 +14,7 @@ header("Content-Type: application/json; charset=UTF-8");
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
 require_once __DIR__ . '/config.php';  // Contains OMISE_SECRET_KEY, DB creds
+require_once __DIR__ . '/mailer.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
 
@@ -49,7 +50,7 @@ if ($type === 'credit' && isset($data['card'])) {
         'amount'               => (int)$amount,
         'currency'             => 'thb',
         'card'                 => $data['card'],
-        'return_uri'           => SITE_URL . '/?payment=success',
+        'return_uri'           => SITE_URL . '/?payment=success&booking_id=' . rawurlencode((string) $booking_id) . '&payment_method=' . rawurlencode((string) $type),
         'webhook_endpoints'    => [SITE_URL . '/api/webhook.php'],
         'metadata'             => [
             'booking_id' => $booking_id,
@@ -105,7 +106,7 @@ if ($type === 'credit' && isset($data['card'])) {
         'amount'               => (int)$amount,
         'currency'             => 'thb',
         'source'               => $sourceId,
-        'return_uri'           => SITE_URL . '/?payment=success',
+        'return_uri'           => SITE_URL . '/?payment=success&booking_id=' . rawurlencode((string) $booking_id) . '&payment_method=' . rawurlencode((string) $type),
         'webhook_endpoints'    => [SITE_URL . '/api/webhook.php'],
         'metadata'             => [
             'booking_id' => $booking_id,
@@ -157,6 +158,30 @@ if ($chargeRes['status'] === 'successful') {
 // Save charge to DB
 $stmt = $conn->prepare("UPDATE bookings SET payment_provider=?, transaction_ref=?, status=? WHERE id=?");
 $stmt->execute([$paymentProvider, $chargeRes['id'], $status, $booking_id]);
+
+if ($status === 'Paid') {
+    $stmt = $conn->prepare("
+        SELECT
+            b.id AS booking_id,
+            b.price,
+            b.booking_date AS date,
+            b.booking_time AS time,
+            b.payment_provider,
+            u.name AS customer_name,
+            u.email,
+            c.name AS court_name
+        FROM bookings b
+        LEFT JOIN users u ON b.user_id = u.id
+        LEFT JOIN courts c ON b.court_id = c.id
+        WHERE b.id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$booking_id]);
+    $bookingNotification = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($bookingNotification && !empty($bookingNotification['email'])) {
+        send_booking_confirmation_email_once($conn, $bookingNotification);
+    }
+}
 
 echo json_encode([
     'success'       => true,

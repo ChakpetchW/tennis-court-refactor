@@ -142,9 +142,10 @@ if ($key === 'charge.complete' && ($data['status'] ?? '') === 'successful') {
                 'booking_id' => $bookingId,
                 'payment_provider' => $booking['payment_provider'] ?? '',
                 'price' => $booking['price'] ?? 0,
+                'email' => $booking['email'],
             ];
-            send_booking_confirmation_email($booking['email'], $mailData);
-            error_log('[Webhook] Booking #' . $bookingId . ' confirmed. Email sent to ' . $booking['email']);
+            $mailResult = send_booking_confirmation_email_once($conn, $mailData);
+            error_log('[Webhook] Booking #' . $bookingId . ' confirmed. Email result: ' . json_encode($mailResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
     }
 

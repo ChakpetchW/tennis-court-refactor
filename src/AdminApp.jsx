@@ -5,7 +5,7 @@ import Admin from './pages/Admin'
 import { useApp } from './hooks/useApp'
 
 const adminShellStyle = {
-  padding: '16px 32px',
+  padding: '18px clamp(20px, 3vw, 40px)',
   background: '#fff',
   borderBottom: '1px solid #eee',
   display: 'flex',
@@ -46,9 +46,9 @@ function AdminApp() {
   }
 
   return (
-    <div className="admin-outer-container">
-      <div style={adminShellStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div className="admin-outer-container" style={{ minHeight: '100vh', background: '#f6f8f7' }}>
+      <div style={adminShellStyle} className="admin-shell-bar">
+        <div className="admin-shell-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
               background: 'var(--accent-primary)',
@@ -66,12 +66,13 @@ function AdminApp() {
           </div>
           <h1 style={{ fontSize: '1.2rem', margin: 0 }}>System Administration</h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <span style={{ fontSize: '0.9rem', color: '#666' }}>
+        <div className="admin-shell-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <span style={{ fontSize: '0.9rem', color: '#666' }} className="admin-shell-greeting">
             สวัสดี, <strong>{adminUser.name}</strong>
           </span>
           <button
             onClick={() => void adminLogout()}
+            className="admin-shell-logout-btn"
             style={{
               background: 'none',
               border: '1px solid #ddd',

@@ -27,11 +27,11 @@ const AdminAllotment = ({ selectedDate }) => {
   return (
     <div className="flex-col gap-md">
       <h3 style={{ fontSize: '1.4rem', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)', marginBottom: '24px' }}>Venue Availability Management</h3>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="admin-allotment-table-wrap" style={{ overflowX: 'auto' }}>
+        <table className="admin-allotment-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #eee' }}>
-              <th style={{ textAlign: 'left', padding: '24px 32px', minWidth: '150px', fontSize: '1.2rem', fontFamily: 'var(--font-heading)', color: 'var(--accent-primary)' }}>VENUE</th>
+              <th className="admin-allotment-sticky-col" style={{ textAlign: 'left', padding: '24px 32px', minWidth: '150px', fontSize: '1.2rem', fontFamily: 'var(--font-heading)', color: 'var(--accent-primary)' }}>VENUE</th>
               {TIME_SLOTS.map(h => (
                 <th key={h} style={{ padding: '16px', minWidth: '100px', textAlign: 'center', fontWeight: '800', fontSize: '0.9rem', color: '#888' }}>{h}</th>
               ))}
@@ -40,7 +40,7 @@ const AdminAllotment = ({ selectedDate }) => {
           <tbody>
             {courts.map(court => (
               <tr key={court.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                <td style={{ padding: '24px 32px' }}>
+                <td className="admin-allotment-sticky-col" style={{ padding: '24px 32px' }}>
                   <div style={{ fontWeight: '800', fontSize: '1.4rem', color: '#1a1a3a', fontFamily: 'var(--font-heading)' }}>{court.name}</div>
                   <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: '600' }}>{court.type} Venue</div>
                 </td>
