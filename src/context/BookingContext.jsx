@@ -12,8 +12,16 @@ export const BookingProvider = ({ children }) => {
       if (Array.isArray(data)) {
         setCourts((prev) =>
           prev.map((court) => {
-            const match = data.find((rate) => Number(rate.id) === court.id)
-            return match ? { ...court, price_per_hour: match.rate || match.price_per_hour } : court
+            const match = data.find((backend) => Number(backend.id) === court.id)
+            if (match) {
+              return {
+                ...court,
+                name: match.name || court.name,
+                type: match.type || court.type,
+                price_per_hour: Number(match.rate || match.price_per_hour || 0)
+              }
+            }
+            return court
           }),
         )
       }

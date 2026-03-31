@@ -3,14 +3,14 @@
  */
 
 export const INITIAL_COURTS = [
-  { id: 1, name: 'North-1', type: 'Badminton', orientation: 'v', pos: { x: 80, y: 15 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
-  { id: 2, name: 'North-2', type: 'Badminton', orientation: 'v', pos: { x: 50, y: 15 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
-  { id: 3, name: 'North-3', type: 'Badminton', orientation: 'v', pos: { x: 20, y: 15 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
-  { id: 4, name: 'Center-1', type: 'Badminton', orientation: 'v', pos: { x: 80, y: 48 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
+  { id: 1, name: 'North-1', type: 'Tennis', orientation: 'v', pos: { x: 80, y: 15 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
+  { id: 2, name: 'North-2', type: 'Tennis', orientation: 'v', pos: { x: 50, y: 15 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
+  { id: 3, name: 'North-3', type: 'Tennis', orientation: 'v', pos: { x: 20, y: 15 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
+  { id: 4, name: 'Center-1', type: 'Tennis', orientation: 'v', pos: { x: 80, y: 48 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
   { id: 5, name: 'Center-2', type: 'Tennis', orientation: 'h', pos: { x: 35, y: 48 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, pendingBy: null })) },
-  { id: 6, name: 'South-1', type: 'Badminton', orientation: 'v', pos: { x: 80, y: 80 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, MapPin: null })) },
-  { id: 7, name: 'South-2', type: 'Badminton', orientation: 'v', pos: { x: 50, y: 80 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, MapPin: null })) },
-  { id: 8, name: 'South-3', type: 'Badminton', orientation: 'v', pos: { x: 20, y: 80 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, MapPin: null })) },
+  { id: 6, name: 'South-1', type: 'Tennis', orientation: 'v', pos: { x: 80, y: 80 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, MapPin: null })) },
+  { id: 7, name: 'South-2', type: 'Tennis', orientation: 'v', pos: { x: 50, y: 80 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, MapPin: null })) },
+  { id: 8, name: 'South-3', type: 'Tennis', orientation: 'v', pos: { x: 20, y: 80 }, allotment: Array(18).fill(null).map(() => ({ isOpen: true, bookedBy: null, MapPin: null })) },
 ];
 
 export const TIME_SLOTS = [
