@@ -80,6 +80,43 @@ $normalizePhoneForOtp = function ($phone) {
     return $digits;
 };
 
+$normalizeBirthdayForDb = function ($birthday) {
+    $raw = trim((string) $birthday);
+    if ($raw === '') {
+        return null;
+    }
+
+    foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'Y/m/d'] as $format) {
+        $date = DateTime::createFromFormat($format, $raw);
+        if ($date instanceof DateTime && $date->format($format) === $raw) {
+            return $date->format('Y-m-d');
+        }
+    }
+
+    $timestamp = strtotime($raw);
+    if ($timestamp === false) {
+        return null;
+    }
+
+    return date('Y-m-d', $timestamp);
+};
+
+$normalizePhoneForStorage = function ($phone) {
+    $digits = preg_replace('/\D+/', '', (string) $phone);
+
+    // Convert 668XXXXXXXX to 08XXXXXXXX
+    if (str_starts_with($digits, '66') && strlen($digits) === 11) {
+        return '0' . substr($digits, 2);
+    }
+
+    // Already 08XXXXXXXX
+    if (strlen($digits) === 10 && str_starts_with($digits, '0')) {
+        return $digits;
+    }
+
+    return $digits;
+};
+
 $extractOtpToken = function ($payload) {
     if (!is_array($payload)) {
         return null;
@@ -357,6 +394,24 @@ $validateSlotAvailability = function ($courtId, $date, $hour, ?int $excludeBooki
 $requestedAction = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
 
 switch($requestedAction) {
+    case 'get_config':
+        $config = [
+            'provider' => defined('VITE_OTP_PROVIDER') ? VITE_OTP_PROVIDER : 'firebase',
+            'firebase' => [
+                'apiKey' => defined('VITE_FIREBASE_API_KEY') ? VITE_FIREBASE_API_KEY : '',
+                'authDomain' => defined('VITE_FIREBASE_AUTH_DOMAIN') ? VITE_FIREBASE_AUTH_DOMAIN : '',
+                'projectId' => defined('VITE_FIREBASE_PROJECT_ID') ? VITE_FIREBASE_PROJECT_ID : '',
+                'storageBucket' => defined('VITE_FIREBASE_STORAGE_BUCKET') ? VITE_FIREBASE_STORAGE_BUCKET : '',
+                'messagingSenderId' => defined('VITE_FIREBASE_MESSAGING_SENDER_ID') ? VITE_FIREBASE_MESSAGING_SENDER_ID : '',
+                'appId' => defined('VITE_FIREBASE_APP_ID') ? VITE_FIREBASE_APP_ID : '',
+                'measurementId' => defined('VITE_FIREBASE_MEASUREMENT_ID') ? VITE_FIREBASE_MEASUREMENT_ID : ''
+            ]
+        ];
+        echo json_encode([
+            "success" => true,
+            "config" => $config
+        ]);
+        break;
     case 'ping':
         echo json_encode(["ping" => "pong", "received" => $requestedAction]);
         break;
@@ -743,8 +798,9 @@ switch($requestedAction) {
 
     case 'login':
         $data = get_json_input();
+        $phone = $normalizePhoneForStorage($data->phone ?? '');
         $stmt = $conn->prepare("SELECT id, phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance FROM users WHERE phone = ?");
-        $stmt->execute([$data->phone]);
+        $stmt->execute([$phone]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         echo json_encode($user ?: ["isRegistered" => false]);
         break;
@@ -758,7 +814,7 @@ switch($requestedAction) {
             json_response(["success" => false, "error" => "Missing phone number"], 422);
         }
 
-        if (OTP_API_KEY !== '' && OTP_API_SECRET !== '') {
+        if (defined('OTP_API_KEY') && OTP_API_KEY !== '' && defined('OTP_API_SECRET') && OTP_API_SECRET !== '') {
             [$responseBody, $httpCode, $curlError] = $callThaibulkSmsOtp(
                 'https://otp.thaibulksms.com/v2/otp/request',
                 [
@@ -797,19 +853,19 @@ switch($requestedAction) {
             break;
         }
 
-        if (OTP_WEBHOOK_URL === '') {
+        if (!defined('OTP_WEBHOOK_URL') || OTP_WEBHOOK_URL === '') {
             echo json_encode(["success" => true, "simulated" => true]);
             break;
         }
 
-        $method = strtoupper(OTP_METHOD ?: 'POST');
+        $method = strtoupper(defined('OTP_METHOD') ? OTP_METHOD : 'POST');
         $url = OTP_WEBHOOK_URL;
         $headers = ['Content-Type: application/json'];
 
-        if (OTP_API_KEY !== '') {
+        if (defined('OTP_API_KEY') && OTP_API_KEY !== '') {
             $headers[] = 'X-API-Key: ' . OTP_API_KEY;
         }
-        if (OTP_API_SECRET !== '') {
+        if (defined('OTP_API_SECRET') && OTP_API_SECRET !== '') {
             $headers[] = 'X-API-Secret: ' . OTP_API_SECRET;
         }
 
@@ -859,7 +915,7 @@ switch($requestedAction) {
             json_response(["success" => false, "error" => "Missing phone number or OTP PIN"], 422);
         }
 
-        if (OTP_API_KEY !== '' && OTP_API_SECRET !== '') {
+        if (defined('OTP_API_KEY') && OTP_API_KEY !== '' && defined('OTP_API_SECRET') && OTP_API_SECRET !== '') {
             $sessionToken = $_SESSION['otp_token'] ?? '';
             $sessionPhone = $_SESSION['otp_phone_normalized'] ?? '';
 
@@ -867,11 +923,16 @@ switch($requestedAction) {
                 json_response(["success" => false, "error" => "OTP session expired or mismatched phone number"], 409);
             }
 
+            $otp_api_key = defined('OTP_API_KEY') ? OTP_API_KEY : '';
+            $otp_api_secret = defined('OTP_API_SECRET') ? OTP_API_SECRET : '';
+            $otp_method = defined('OTP_METHOD') ? OTP_METHOD : 'post';
+            $otp_webhook_url = defined('OTP_WEBHOOK_URL') ? OTP_WEBHOOK_URL : '';
+
             [$responseBody, $httpCode, $curlError] = $callThaibulkSmsOtp(
                 'https://otp.thaibulksms.com/v2/otp/verify',
                 [
-                    'key' => OTP_API_KEY,
-                    'secret' => OTP_API_SECRET,
+                    'key' => $otp_api_key,
+                    'secret' => $otp_api_secret,
                     'token' => $sessionToken,
                     'pin' => $pin,
                 ]
@@ -926,27 +987,35 @@ switch($requestedAction) {
         break;
 
     case 'register':
-        $data = json_decode(file_get_contents("php://input"));
+        $data = get_json_input();
+        $phone = $normalizePhoneForStorage($data->phone ?? '');
+        $birthday = $normalizeBirthdayForDb($data->birthday ?? '');
+        $lineId = trim((string) ($data->line_id ?? $data->lineId ?? ''));
+        $location = trim((string) ($data->location ?? 'Tennis Court'));
         try {
             $stmt = $conn->prepare("INSERT INTO users (phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)");
             $stmt->execute([
-                $data->phone, 
+                $phone, 
                 $data->name, 
                 $data->surname ?? '', 
                 $data->nickname ?? '', 
                 $data->email, 
-                $data->line_id ?? '', 
-                $data->birthday,
-                $data->location ?? 'Tennis Court'
+                $lineId, 
+                $birthday,
+                $location === '' ? 'Tennis Court' : $location
             ]);
             $data->id = $conn->lastInsertId();
+            $data->phone = $phone;
+            $data->line_id = $lineId;
+            $data->birthday = $birthday;
+            $data->location = $location === '' ? 'Tennis Court' : $location;
             $data->wallet_balance = 0;
             echo json_encode($data);
         } catch (PDOException $e) {
             if ($e->getCode() === '23000') {
                 // Duplicate phone — return existing user instead
                 $stmt2 = $conn->prepare("SELECT id, phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance FROM users WHERE phone = ?");
-                $stmt2->execute([$data->phone]);
+                $stmt2->execute([$phone]);
                 $existing = $stmt2->fetch(PDO::FETCH_ASSOC);
                 if ($existing) {
                     echo json_encode(array_merge($existing, ["isRegistered" => true]));
@@ -1111,7 +1180,7 @@ switch($requestedAction) {
         $data = json_decode(file_get_contents("php://input"));
         $booking_id = null;
         if (isset($data->user_id) && $data->user_id > 0) {
-            $slotError = $validateSlotAvailability($data->court_id, $data->date, $data->hour);
+            $slotError = $validateSlotAvailability($data->court_id, $data->date, $data->hour, null, false);
             if ($slotError !== null) {
                 echo json_encode(["success" => false, "error" => $slotError, "code" => "SLOT_UNAVAILABLE"]);
                 break;
@@ -1210,6 +1279,250 @@ switch($requestedAction) {
         ");
         $stmt->execute([$date]);
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        break;
+
+    case 'get_admin_users':
+        require_admin_session();
+        $stmt = $conn->query("
+            SELECT
+                u.id,
+                u.phone,
+                u.name,
+                u.surname,
+                u.nickname,
+                u.email,
+                u.line_id,
+                u.birthday,
+                u.location,
+                u.wallet_balance,
+                u.created_at,
+                COUNT(b.id) AS booking_count
+            FROM users u
+            LEFT JOIN bookings b ON b.user_id = u.id
+            GROUP BY u.id, u.phone, u.name, u.surname, u.nickname, u.email, u.line_id, u.birthday, u.location, u.wallet_balance, u.created_at
+            ORDER BY u.created_at DESC, u.id DESC
+        ");
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        break;
+
+    case 'admin_create_user':
+        $admin = require_admin_session();
+        $data = get_json_input();
+
+        $phone = trim((string) ($data->phone ?? ''));
+        $name = trim((string) ($data->name ?? ''));
+        $nickname = trim((string) ($data->nickname ?? ''));
+        $email = trim((string) ($data->email ?? ''));
+        $lineId = trim((string) ($data->line_id ?? $data->lineId ?? ''));
+        $location = trim((string) ($data->location ?? 'Tennis Court'));
+        $birthday = $normalizeBirthdayForDb($data->birthday ?? '');
+
+        if ($phone === '' || $name === '') {
+            json_response(["error" => "Phone and name are required"], 422);
+        }
+
+        try {
+            $stmt = $conn->prepare("
+                INSERT INTO users (phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance)
+                VALUES (?, ?, '', ?, ?, ?, ?, ?, 0)
+            ");
+            $stmt->execute([$phone, $name, $nickname, $email, $lineId, $birthday, $location === '' ? 'Tennis Court' : $location]);
+
+            $userId = (int) $conn->lastInsertId();
+            $fetchStmt = $conn->prepare("
+                SELECT id, phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance, created_at
+                FROM users
+                WHERE id = ?
+                LIMIT 1
+            ");
+            $fetchStmt->execute([$userId]);
+            $createdUser = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+
+            $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+            $logStmt->execute([
+                'USER_CREATE',
+                "Created member {$name} ({$phone})",
+                $admin['name'],
+            ]);
+
+            echo json_encode([
+                "success" => true,
+                "user" => $createdUser,
+            ]);
+        } catch (PDOException $e) {
+            if ($e->getCode() === '23000') {
+                json_response(["error" => "Phone number already exists"], 409);
+            }
+
+            json_response(["error" => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'admin_update_user':
+        $admin = require_admin_session();
+        $data = get_json_input();
+
+        $userId = (int) ($data->id ?? 0);
+        $phone = trim((string) ($data->phone ?? ''));
+        $name = trim((string) ($data->name ?? ''));
+        $nickname = trim((string) ($data->nickname ?? ''));
+        $email = trim((string) ($data->email ?? ''));
+        $lineId = trim((string) ($data->line_id ?? $data->lineId ?? ''));
+        $location = trim((string) ($data->location ?? 'Tennis Court'));
+        $birthday = $normalizeBirthdayForDb($data->birthday ?? '');
+
+        if ($userId <= 0 || $phone === '' || $name === '') {
+            json_response(["error" => "User id, phone, and name are required"], 422);
+        }
+
+        try {
+            $stmt = $conn->prepare("
+                UPDATE users
+                SET phone = ?, name = ?, nickname = ?, email = ?, line_id = ?, birthday = ?, location = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$phone, $name, $nickname, $email, $lineId, $birthday, $location === '' ? 'Tennis Court' : $location, $userId]);
+
+            if ($stmt->rowCount() === 0) {
+                $existsStmt = $conn->prepare("SELECT id FROM users WHERE id = ? LIMIT 1");
+                $existsStmt->execute([$userId]);
+                if (!$existsStmt->fetchColumn()) {
+                    json_response(["error" => "User not found"], 404);
+                }
+            }
+
+            $fetchStmt = $conn->prepare("
+                SELECT id, phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance, created_at
+                FROM users
+                WHERE id = ?
+                LIMIT 1
+            ");
+            $fetchStmt->execute([$userId]);
+            $updatedUser = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+
+            $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+            $logStmt->execute([
+                'USER_UPDATE',
+                "Updated member {$name} ({$phone})",
+                $admin['name'],
+            ]);
+
+            echo json_encode([
+                "success" => true,
+                "user" => $updatedUser,
+            ]);
+        } catch (PDOException $e) {
+            if ($e->getCode() === '23000') {
+                json_response(["error" => "Phone number already exists"], 409);
+            }
+
+            json_response(["error" => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'admin_delete_user':
+        $admin = require_admin_session();
+        $data = get_json_input();
+        $userId = (int) ($data->user_id ?? 0);
+        $password = (string) ($data->password ?? '');
+
+        if ($userId <= 0) {
+            json_response(["error" => "Missing user_id"], 422);
+        }
+
+        if ($password === '') {
+            json_response(["error" => "Missing admin password"], 422);
+        }
+
+        $adminStmt = $conn->prepare("SELECT password_hash FROM admins WHERE id = ? LIMIT 1");
+        $adminStmt->execute([$admin['id']]);
+        $adminRow = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$adminRow || !password_verify($password, $adminRow['password_hash'])) {
+            json_response(["error" => "รหัสผ่านแอดมินไม่ถูกต้อง"], 401);
+        }
+
+        try {
+            $conn->beginTransaction();
+
+            $userStmt = $conn->prepare("SELECT id, name, phone FROM users WHERE id = ? LIMIT 1 FOR UPDATE");
+            $userStmt->execute([$userId]);
+            $userToDelete = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$userToDelete) {
+                $conn->rollBack();
+                json_response(["error" => "User not found"], 404);
+            }
+
+            $bookingSlotsStmt = $conn->prepare("
+                SELECT DISTINCT court_id, booking_date, booking_time
+                FROM bookings
+                WHERE user_id = ?
+            ");
+            $bookingSlotsStmt->execute([$userId]);
+            $bookingSlots = $bookingSlotsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $bookingCountStmt = $conn->prepare("SELECT COUNT(*) FROM bookings WHERE user_id = ?");
+            $bookingCountStmt->execute([$userId]);
+            $bookingCount = (int) $bookingCountStmt->fetchColumn();
+
+            $walletTxCountStmt = $conn->prepare("SELECT COUNT(*) FROM wallet_transactions WHERE user_id = ?");
+            $walletTxCountStmt->execute([$userId]);
+            $walletTransactionCount = (int) $walletTxCountStmt->fetchColumn();
+
+            $deleteWalletTransactionsStmt = $conn->prepare("DELETE FROM wallet_transactions WHERE user_id = ?");
+            $deleteWalletTransactionsStmt->execute([$userId]);
+
+            $deleteBookingsStmt = $conn->prepare("DELETE FROM bookings WHERE user_id = ?");
+            $deleteBookingsStmt->execute([$userId]);
+
+            $remainingSlotStmt = $conn->prepare("
+                SELECT COUNT(*)
+                FROM bookings
+                WHERE court_id = ? AND booking_date = ? AND booking_time = ?
+            ");
+            $deleteAllotmentStmt = $conn->prepare("DELETE FROM allotments WHERE court_id = ? AND date = ? AND hour = ?");
+
+            foreach ($bookingSlots as $slot) {
+                $remainingSlotStmt->execute([
+                    $slot['court_id'],
+                    $slot['booking_date'],
+                    $slot['booking_time'],
+                ]);
+
+                if ((int) $remainingSlotStmt->fetchColumn() === 0) {
+                    $deleteAllotmentStmt->execute([
+                        $slot['court_id'],
+                        $slot['booking_date'],
+                        $slot['booking_time'],
+                    ]);
+                }
+            }
+
+            $deleteStmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+            $deleteStmt->execute([$userId]);
+
+            $logStmt = $conn->prepare("INSERT INTO audit_logs (action, details, admin_name) VALUES (?, ?, ?)");
+            $logStmt->execute([
+                'USER_DELETE',
+                "Deleted member {$userToDelete['name']} ({$userToDelete['phone']}) | Removed {$bookingCount} bookings and {$walletTransactionCount} wallet transactions",
+                $admin['name'],
+            ]);
+
+            $conn->commit();
+
+            echo json_encode([
+                "success" => true,
+                "deleted_bookings" => $bookingCount,
+                "deleted_wallet_transactions" => $walletTransactionCount,
+            ]);
+        } catch (Exception $e) {
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+
+            json_response(["error" => $e->getMessage()], 500);
+        }
         break;
 
     case 'get_user_history':

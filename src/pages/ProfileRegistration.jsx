@@ -1,216 +1,436 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { User, Mail, Calendar, ArrowRight, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { User, Mail, Calendar, ArrowRight, MessageCircle, MapPin, Smartphone } from 'lucide-react'
 
-function ProfileRegistration({ onComplete }) {
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    nickname: '', 
-    email: '', 
-    birthday: '', 
-    lineId: '',
-    location: 'Tennis Court'
-  })
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [showYearPicker, setShowYearPicker] = useState(false)
-  const yearListRef = useRef(null)
+const MINIMUM_AGE = 7
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setTimeout(() => { setIsLoading(false); onComplete(formData) }, 1000)
+const createMaxEligibleDate = () => {
+  const today = new Date()
+  return new Date(today.getFullYear() - MINIMUM_AGE, today.getMonth(), today.getDate())
+}
+
+const formatDateForInput = (date) => {
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+const parseBirthday = (value) => {
+  if (!value) return null
+
+  const slashMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value)
+  if (slashMatch) {
+    const [, day, month, year] = slashMatch
+    return new Date(Number(year), Number(month) - 1, Number(day))
   }
 
-  const [currentDate, setCurrentDate] = useState(new Date(1995, 0, 1))
+  const dashMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (dashMatch) {
+    const [, year, month, day] = dashMatch
+    return new Date(Number(year), Number(month) - 1, Number(day))
+  }
 
-  const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
-                  'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+  return null
+}
 
-  const currentYear  = new Date().getFullYear()
-  const yearsRange   = Array.from({ length: 100 }, (_, i) => currentYear - i) // newest first
+const clampDay = (year, monthIndex, day) => {
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
+  return Math.min(day, daysInMonth)
+}
 
-  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate()
-  const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay()
+const monthLabels = [
+  'มกราคม',
+  'กุมภาพันธ์',
+  'มีนาคม',
+  'เมษายน',
+  'พฤษภาคม',
+  'มิถุนายน',
+  'กรกฎาคม',
+  'สิงหาคม',
+  'กันยายน',
+  'ตุลาคม',
+  'พฤศจิกายน',
+  'ธันวาคม',
+]
 
-  const handleDateSelect = (day) => {
-    const formatted = `${String(day).padStart(2,'0')}/${String(currentDate.getMonth()+1).padStart(2,'0')}/${currentDate.getFullYear()}`
-    setFormData({ ...formData, birthday: formatted })
+function ProfileRegistration({ onComplete, initialPhone = '' }) {
+  const maxEligibleDate = useMemo(createMaxEligibleDate, [])
+  const [formData, setFormData] = useState({
+    phone: initialPhone,
+    name: '',
+    nickname: '',
+    email: '',
+    birthday: '',
+    line_id: '',
+    location: 'Tennis Court',
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [selectedYear, setSelectedYear] = useState(maxEligibleDate.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(maxEligibleDate.getMonth())
+  const [selectedDay, setSelectedDay] = useState(maxEligibleDate.getDate())
+
+  useEffect(() => {
+    setFormData((prev) => ({ ...prev, phone: initialPhone }))
+  }, [initialPhone])
+
+  useEffect(() => {
+    const parsed = parseBirthday(formData.birthday)
+    if (!parsed || Number.isNaN(parsed.getTime())) {
+      return
+    }
+
+    setSelectedYear(parsed.getFullYear())
+    setSelectedMonth(parsed.getMonth())
+    setSelectedDay(parsed.getDate())
+  }, [formData.birthday])
+
+  const years = useMemo(() => {
+    const latestYear = maxEligibleDate.getFullYear()
+    return Array.from({ length: 100 }, (_, index) => latestYear - index)
+  }, [maxEligibleDate])
+
+  const daysInSelectedMonth = useMemo(
+    () => new Date(selectedYear, selectedMonth + 1, 0).getDate(),
+    [selectedMonth, selectedYear],
+  )
+
+  const days = useMemo(
+    () => Array.from({ length: daysInSelectedMonth }, (_, index) => index + 1),
+    [daysInSelectedMonth],
+  )
+
+  useEffect(() => {
+    const nextDay = clampDay(selectedYear, selectedMonth, selectedDay)
+    if (nextDay !== selectedDay) {
+      setSelectedDay(nextDay)
+    }
+  }, [selectedDay, selectedMonth, selectedYear])
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setIsLoading(true)
+
+    try {
+      await onComplete(formData)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const openDatePicker = () => {
+    const parsed = parseBirthday(formData.birthday) || maxEligibleDate
+    const safeDate = parsed > maxEligibleDate ? maxEligibleDate : parsed
+
+    setSelectedYear(safeDate.getFullYear())
+    setSelectedMonth(safeDate.getMonth())
+    setSelectedDay(safeDate.getDate())
+    setShowDatePicker(true)
+  }
+
+  const confirmDateSelection = () => {
+    const pickedDate = new Date(selectedYear, selectedMonth, selectedDay)
+    const finalDate = pickedDate > maxEligibleDate ? maxEligibleDate : pickedDate
+
+    setFormData((prev) => ({
+      ...prev,
+      birthday: formatDateForInput(finalDate),
+    }))
     setShowDatePicker(false)
   }
 
-  const handleYearSelect = (year) => {
-    setCurrentDate(new Date(year, currentDate.getMonth(), 1))
-    setShowYearPicker(false)
-  }
-
-  // Scroll selected year into center when opening year picker
-  useEffect(() => {
-    if (showYearPicker && yearListRef.current) {
-      const selectedEl = yearListRef.current.querySelector('[data-selected="true"]')
-      if (selectedEl) selectedEl.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    }
-  }, [showYearPicker])
-
   return (
-    <div className="container fade-in" style={{ maxWidth: '600px', paddingTop: '40px' }}>
+    <div className="container fade-in" style={{ maxWidth: '760px', paddingTop: '40px' }}>
       <div className="glass-card" style={{ padding: '40px', background: '#fff' }}>
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <h1 style={{ fontSize: '2.2rem', fontFamily: 'var(--font-heading)', color: 'var(--accent-primary)', marginBottom: '12px', letterSpacing: '-0.02em' }}>สมัครสมาชิก</h1>
-          <p style={{ color: '#666', fontSize: '1.1rem' }}>ร่วมเป็นส่วนหนึ่งของคอมมูนิตี้เทนนิสระดับพรีเมียมได้แล้ววันนี้</p>
+        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+          <h1 style={{ fontSize: '2.1rem', fontFamily: 'var(--font-heading)', color: 'var(--accent-primary)', marginBottom: '10px', letterSpacing: '-0.02em' }}>
+            สมัครสมาชิก
+          </h1>
+          <p style={{ color: '#5f6b66', fontSize: '1rem', lineHeight: 1.7 }}>
+            กรอกข้อมูลสมาชิกให้ครบถ้วนเพื่อเริ่มใช้งานระบบจองสนาม
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-col gap-lg">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-            {/* Name */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
             <div className="flex-col gap-sm">
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>ชื่อ-นามสกุล</label>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#5f6b66', textTransform: 'uppercase' }}>เบอร์โทรศัพท์</label>
+              <div style={{ position: 'relative' }}>
+                <Smartphone size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  readOnly
+                  required
+                  style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #dbe7de', fontSize: '1.05rem', background: '#f8fbf8', color: '#1f2d28' }}
+                />
+              </div>
+            </div>
+
+            <div className="flex-col gap-sm">
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#5f6b66', textTransform: 'uppercase' }}>ชื่อ-นามสกุล</label>
               <div style={{ position: 'relative' }}>
                 <User size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
-                <input type="text" placeholder="ชื่อ และ นามสกุล" style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #eee', fontSize: '1.1rem' }}
-                  value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+                <input
+                  type="text"
+                  placeholder="ชื่อ และ นามสกุล"
+                  value={formData.name}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, name: event.target.value }))}
+                  required
+                  style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #e6efea', fontSize: '1.05rem' }}
+                />
               </div>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-            {/* Nickname */}
             <div className="flex-col gap-sm">
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>ชื่อเล่น</label>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#5f6b66', textTransform: 'uppercase' }}>ชื่อเล่น</label>
               <div style={{ position: 'relative' }}>
                 <User size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
-                <input type="text" placeholder="ชื่อเล่น" style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #eee', fontSize: '1.1rem' }}
-                  value={formData.nickname || ''} onChange={(e) => setFormData({...formData, nickname: e.target.value})} />
+                <input
+                  type="text"
+                  placeholder="ชื่อเล่น"
+                  value={formData.nickname}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, nickname: event.target.value }))}
+                  required
+                  style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #e6efea', fontSize: '1.05rem' }}
+                />
               </div>
             </div>
 
-            {/* Email */}
             <div className="flex-col gap-sm">
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>อีเมล</label>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#5f6b66', textTransform: 'uppercase' }}>อีเมล</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
-                <input type="email" placeholder="email@example.com" style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #eee', fontSize: '1rem' }}
-                  value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
+                <input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={formData.email}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, email: event.target.value }))}
+                  required
+                  style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #e6efea', fontSize: '1rem' }}
+                />
               </div>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-            {/* Line ID */}
             <div className="flex-col gap-sm">
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Line ID (ถ้ามี)</label>
-              <div style={{ position: 'relative' }}>
-                <MessageCircle size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
-                <input type="text" placeholder="@lineid" style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #eee', fontSize: '1.1rem' }}
-                  value={formData.lineId} onChange={(e) => setFormData({...formData, lineId: e.target.value})} />
-              </div>
-            </div>
-
-            {/* Birthday */}
-            <div className="flex-col gap-sm">
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>วันเกิด</label>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#5f6b66', textTransform: 'uppercase' }}>วันเกิด</label>
               <div style={{ position: 'relative' }}>
                 <Calendar size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
-                <input type="text" readOnly placeholder="01/01/1995"
-                  style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #eee', fontSize: '1.1rem', cursor: 'pointer', background: '#fff' }}
-                  value={formData.birthday} onClick={() => setShowDatePicker(true)} required />
+                <input
+                  type="text"
+                  placeholder="วัน/เดือน/ปี"
+                  value={formData.birthday}
+                  onClick={openDatePicker}
+                  readOnly
+                  required
+                  style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #e6efea', fontSize: '1.05rem', cursor: 'pointer', background: '#fff' }}
+                />
+              </div>
+              <span style={{ fontSize: '0.82rem', color: '#6d7f76' }}>สมัครได้ตั้งแต่อายุ 7 ปีขึ้นไป</span>
+            </div>
+
+            <div className="flex-col gap-sm">
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#5f6b66', textTransform: 'uppercase' }}>Line ID (ถ้ามี)</label>
+              <div style={{ position: 'relative' }}>
+                <MessageCircle size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
+                <input
+                  type="text"
+                  placeholder="@lineid"
+                  value={formData.line_id}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, line_id: event.target.value }))}
+                  style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #e6efea', fontSize: '1.05rem' }}
+                />
               </div>
             </div>
           </div>
 
-          {/* Calendar Modal */}
-          {showDatePicker && (
-            <div className="calendar-modal-overlay" onClick={() => { setShowDatePicker(false); setShowYearPicker(false) }} style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
-              <div className="calendar-card fade-in" onClick={e => e.stopPropagation()} style={{ padding: '24px', borderRadius: 'var(--radius-lg)' }}>
+          <div className="flex-col gap-sm">
+            <label style={{ fontSize: '0.85rem', fontWeight: '700', color: '#5f6b66', textTransform: 'uppercase' }}>สถานที่</label>
+            <div style={{ position: 'relative' }}>
+              <MapPin size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-primary)' }} />
+              <input
+                type="text"
+                value={formData.location}
+                readOnly
+                required
+                style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 'var(--radius-md)', border: '2px solid #dbe7de', fontSize: '1.05rem', background: '#f8fbf8', color: '#1f2d28' }}
+              />
+            </div>
+          </div>
 
-                {/* Year Scroll Picker */}
-                {showYearPicker ? (
-                  <div className="flex-col gap-sm" style={{ padding: '8px 0' }}>
-                    <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '1.2rem', marginBottom: '16px', color: 'var(--accent-primary)', fontFamily: 'var(--font-heading)' }}>เลือกปี</div>
-                    <div ref={yearListRef} style={{
-                      maxHeight: '260px', overflowY: 'auto', borderRadius: 'var(--radius-md)',
-                      scrollbarWidth: 'none', background: '#f8f9fa', padding: '10px'
-                    }}>
-                      {yearsRange.map(year => {
-                        const isSelected = year === currentDate.getFullYear()
-                        return (
-                          <div
-                            key={year}
-                            data-selected={isSelected}
-                            onClick={() => handleYearSelect(year)}
-                            style={{
-                              padding: '12px', cursor: 'pointer', textAlign: 'center',
-                              fontWeight: isSelected ? '800' : '400',
-                              fontSize: isSelected ? '1.2rem' : '1rem',
-                              color: isSelected ? '#fff' : '#333',
-                              background: isSelected ? 'var(--accent-primary)' : 'transparent',
-                              borderRadius: 'var(--radius-sm)', margin: '4px 0',
-                              transition: 'all 0.15s',
-                            }}
-                          >
-                            {year + 543} (ค.ศ. {year})
-                          </div>
-                        )}
-                      )}
-                    </div>
-                    <button style={{ marginTop: '16px', fontSize: '1rem', color: '#888', fontWeight: '600' }} onClick={() => setShowYearPicker(false)}>ยกเลิก</button>
+          {showDatePicker ? (
+            <div
+              className="calendar-modal-overlay"
+              onClick={() => setShowDatePicker(false)}
+              style={{ background: 'rgba(17, 38, 28, 0.28)', backdropFilter: 'blur(10px)' }}
+            >
+              <div
+                className="fade-in"
+                onClick={(event) => event.stopPropagation()}
+                style={{
+                  width: 'min(720px, calc(100vw - 32px))',
+                  background: '#ffffff',
+                  borderRadius: '28px',
+                  padding: '28px',
+                  boxShadow: '0 30px 80px rgba(24, 58, 40, 0.18)',
+                  border: '1px solid rgba(32, 89, 54, 0.08)',
+                }}
+              >
+                <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+                  <div style={{ fontSize: '0.82rem', color: '#6c7c74', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    เลือกวันเกิด
                   </div>
-                ) : (
-                  <>
-                    <div className="calendar-header" style={{ marginBottom: '20px' }}>
-                      <button type="button" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} style={{ padding: '8px', color: 'var(--accent-primary)' }}>
-                        <ChevronLeft size={24} />
-                      </button>
-                      <div
-                        onClick={() => setShowYearPicker(true)}
-                        style={{
-                          fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-                          padding: '8px 24px', borderRadius: '30px', background: 'var(--accent-court)',
-                          color: 'var(--accent-primary)', fontSize: '1.1rem', transition: 'all 0.2s'
-                        }}
-                      >
-                        {months[currentDate.getMonth()]} {currentDate.getFullYear() + 543}
-                        <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>▼</span>
-                      </div>
-                      <button type="button" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} style={{ padding: '8px', color: 'var(--accent-primary)' }}>
-                        <ChevronRight size={24} />
-                      </button>
-                    </div>
+                  <div style={{ fontSize: '1.7rem', color: 'var(--accent-primary)', fontWeight: '800', marginTop: '6px' }}>
+                    วัน / เดือน / ปี
+                  </div>
+                </div>
 
-                    <div className="calendar-grid" style={{ gap: '12px' }}>
-                      {['อา','จ','อ','พ','พฤ','ศ','ส'].map(d => (
-                        <div key={d} className="calendar-day-label" style={{ fontWeight: '700', color: '#999', fontSize: '0.8rem', textTransform: 'uppercase' }}>{d}</div>
-                      ))}
-                      {[...Array(firstDayOfMonth(currentDate.getFullYear(), currentDate.getMonth())).keys()].map(i => (
-                        <div key={`empty-${i}`} className="calendar-day-btn empty" />
-                      ))}
-                      {[...Array(getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth())).keys()].map(i => {
-                        const d = i + 1
-                        const isSelected = formData.birthday === `${String(d).padStart(2,'0')}/${String(currentDate.getMonth()+1).padStart(2,'0')}/${currentDate.getFullYear()}`
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1.2fr 1fr',
+                    gap: '14px',
+                    alignItems: 'stretch',
+                    marginBottom: '24px',
+                  }}
+                >
+                  <div style={{ background: '#f6faf7', borderRadius: '22px', padding: '12px', border: '1px solid #e3eee6' }}>
+                    <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#69806f', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase' }}>วัน</div>
+                    <div style={{ maxHeight: '260px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {days.map((day) => {
+                        const isActive = day === selectedDay
                         return (
-                          <div key={d} 
-                            className={`calendar-day-btn ${isSelected ? 'selected' : ''}`} 
-                            onClick={() => handleDateSelect(d)}
-                            style={{ 
-                              width: '40px', height: '40px', fontSize: '1rem', fontWeight: isSelected ? '800' : '500',
-                              background: isSelected ? 'var(--accent-primary)' : 'transparent',
-                              color: isSelected ? '#fff' : '#333',
-                              borderRadius: '50%'
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => setSelectedDay(day)}
+                            style={{
+                              width: '100%',
+                              border: 'none',
+                              background: isActive ? 'var(--accent-primary)' : 'transparent',
+                              color: isActive ? '#fff' : '#345241',
+                              borderRadius: '16px',
+                              padding: '12px 10px',
+                              marginBottom: '8px',
+                              fontSize: isActive ? '1.05rem' : '0.98rem',
+                              fontWeight: isActive ? '800' : '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
                             }}
                           >
-                            {d}
-                          </div>
+                            {String(day).padStart(2, '0')}
+                          </button>
                         )
                       })}
                     </div>
-                    <button type="button" style={{ width: '100%', marginTop: '32px', padding: '16px', fontSize: '1rem', color: 'var(--accent-primary)', fontWeight: '700', border: 'none', background: 'none', cursor: 'pointer' }}
-                      onClick={() => setShowDatePicker(false)}>ปิดหน้าต่าง</button>
-                  </>
-                )}
+                  </div>
+
+                  <div style={{ background: '#f6faf7', borderRadius: '22px', padding: '12px', border: '1px solid #e3eee6' }}>
+                    <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#69806f', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase' }}>เดือน</div>
+                    <div style={{ maxHeight: '260px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {monthLabels.map((monthLabel, index) => {
+                        const isActive = index === selectedMonth
+                        return (
+                          <button
+                            key={monthLabel}
+                            type="button"
+                            onClick={() => setSelectedMonth(index)}
+                            style={{
+                              width: '100%',
+                              border: 'none',
+                              background: isActive ? 'var(--accent-primary)' : 'transparent',
+                              color: isActive ? '#fff' : '#345241',
+                              borderRadius: '16px',
+                              padding: '12px 10px',
+                              marginBottom: '8px',
+                              fontSize: isActive ? '1rem' : '0.96rem',
+                              fontWeight: isActive ? '800' : '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
+                            {monthLabel}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f6faf7', borderRadius: '22px', padding: '12px', border: '1px solid #e3eee6' }}>
+                    <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#69806f', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase' }}>ปี</div>
+                    <div style={{ maxHeight: '260px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {years.map((year) => {
+                        const isActive = year === selectedYear
+                        return (
+                          <button
+                            key={year}
+                            type="button"
+                            onClick={() => setSelectedYear(year)}
+                            style={{
+                              width: '100%',
+                              border: 'none',
+                              background: isActive ? 'var(--accent-primary)' : 'transparent',
+                              color: isActive ? '#fff' : '#345241',
+                              borderRadius: '16px',
+                              padding: '12px 10px',
+                              marginBottom: '8px',
+                              fontSize: isActive ? '1.05rem' : '0.98rem',
+                              fontWeight: isActive ? '800' : '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
+                            {year}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePicker(false)}
+                    style={{
+                      minWidth: '120px',
+                      padding: '12px 18px',
+                      borderRadius: '999px',
+                      border: '1px solid #d9e7de',
+                      background: '#fff',
+                      color: '#456052',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDateSelection}
+                    style={{
+                      minWidth: '120px',
+                      padding: '12px 18px',
+                      borderRadius: '999px',
+                      border: 'none',
+                      background: 'var(--accent-primary)',
+                      color: '#fff',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ยืนยัน
+                  </button>
+                </div>
               </div>
             </div>
-          )}
+          ) : null}
 
-          <button type="submit" className="premium-button" disabled={isLoading} style={{ marginTop: '24px', width: '100%', padding: '20px' }}>
+          <button type="submit" className="premium-button" disabled={isLoading} style={{ marginTop: '18px', width: '100%', padding: '18px' }}>
             {isLoading ? 'กำลังสร้างบัญชี...' : 'ถัดไป'} <ArrowRight size={22} style={{ marginLeft: '12px' }} />
           </button>
         </form>

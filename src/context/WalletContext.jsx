@@ -3,20 +3,49 @@ import { api } from '../services/api'
 import { WalletContext } from './wallet-context'
 import { useAuth } from '../hooks/useAuth'
 
+const readPersistedWalletBalance = () => {
+  const localValue = localStorage.getItem('court_wallet')
+  if (localValue !== null) {
+    sessionStorage.setItem('court_wallet', localValue)
+    return Number(localValue || 0)
+  }
+
+  const sessionValue = sessionStorage.getItem('court_wallet')
+  if (sessionValue !== null) {
+    localStorage.setItem('court_wallet', sessionValue)
+    return Number(sessionValue || 0)
+  }
+
+  return 0
+}
+
 export const WalletProvider = ({ children }) => {
   const { user, setUser } = useAuth()
-  const [walletBalance, setWalletBalance] = useState(() => {
+  const [walletBalance, setWalletBalanceState] = useState(() => {
     try {
-      return Number(localStorage.getItem('court_wallet') || 0)
+      return readPersistedWalletBalance()
     } catch {
       return 0
     }
   })
 
-  const syncBalance = useCallback((nextBalance, profileData = null) => {
+  const persistWalletBalance = useCallback((nextBalance) => {
     const normalizedBalance = Number(nextBalance || 0)
-    setWalletBalance(normalizedBalance)
-    localStorage.setItem('court_wallet', normalizedBalance)
+    localStorage.setItem('court_wallet', String(normalizedBalance))
+    sessionStorage.setItem('court_wallet', String(normalizedBalance))
+    return normalizedBalance
+  }, [])
+
+  const setWalletBalance = useCallback((nextValue) => {
+    setWalletBalanceState((currentBalance) => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(currentBalance) : nextValue
+      return persistWalletBalance(resolvedValue)
+    })
+  }, [persistWalletBalance])
+
+  const syncBalance = useCallback((nextBalance, profileData = null) => {
+    const normalizedBalance = persistWalletBalance(nextBalance)
+    setWalletBalanceState(normalizedBalance)
 
     if (setUser) {
       setUser((prev) => {
@@ -30,7 +59,7 @@ export const WalletProvider = ({ children }) => {
     }
 
     return normalizedBalance
-  }, [setUser])
+  }, [persistWalletBalance, setUser])
 
   const fetchUserBalance = useCallback(async () => {
     if (!user?.id) return 0

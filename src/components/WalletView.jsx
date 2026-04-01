@@ -158,8 +158,8 @@ const WalletView = ({ onBack }) => {
   }, [balance, chargeId, finalAmt, onRefreshBalance, step])
 
   const handleConfirmTopUp = async () => {
-    if (!localStorage.getItem('court_user')) return alert('กรุณาเข้าสู่ระบบก่อนเติมเงิน')
-    const userObj = JSON.parse(localStorage.getItem('court_user'))
+    if (!user?.id) return alert('กรุณาเข้าสู่ระบบก่อนเติมเงิน')
+    const userObj = user
     
     setProcessing(true)
     setStatusMsg('กำลังเตรียมการชำระเงิน...')

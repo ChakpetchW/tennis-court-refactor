@@ -120,6 +120,16 @@ define_env_constant('MAIL_FROM_NAME', '');
 
 define_env_constant('SITE_URL', '');
 
+// Optional: Dynamic Config for Frontend (VITE_ equivalents)
+define_env_constant('VITE_OTP_PROVIDER', 'firebase');
+define_env_constant('VITE_FIREBASE_API_KEY', '');
+define_env_constant('VITE_FIREBASE_AUTH_DOMAIN', '');
+define_env_constant('VITE_FIREBASE_PROJECT_ID', '');
+define_env_constant('VITE_FIREBASE_STORAGE_BUCKET', '');
+define_env_constant('VITE_FIREBASE_MESSAGING_SENDER_ID', '');
+define_env_constant('VITE_FIREBASE_APP_ID', '');
+define_env_constant('VITE_FIREBASE_MEASUREMENT_ID', '');
+
 if (!function_exists('start_app_session')) {
     function start_app_session() {
         if (session_status() === PHP_SESSION_ACTIVE) {

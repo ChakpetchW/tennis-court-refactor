@@ -27,6 +27,26 @@ const readStoredBookingReturn = () => {
   }
 }
 
+const readStoredUser = () => {
+  try {
+    const localUser = localStorage.getItem('court_user')
+    if (localUser) {
+      sessionStorage.setItem('court_user', localUser)
+      return JSON.parse(localUser)
+    }
+
+    const sessionUser = sessionStorage.getItem('court_user')
+    if (sessionUser) {
+      localStorage.setItem('court_user', sessionUser)
+      return JSON.parse(sessionUser)
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
 const getInitialView = () => {
   const params = new URLSearchParams(window.location.search)
   if (params.get('payment') === 'success') {
@@ -34,12 +54,10 @@ const getInitialView = () => {
   }
   if (params.get('topup') === 'success') return 'wallet'
 
-  try {
-    const saved = localStorage.getItem('court_user')
-    return saved ? 'profile' : 'login'
-  } catch {
-    return 'login'
-  }
+  const savedUser = readStoredUser()
+  if (!savedUser) return 'login'
+
+  return savedUser.isRegistered === false ? 'registration' : 'profile'
 }
 
 const resolveCourtId = (bookingData) => {
@@ -58,8 +76,6 @@ function App() {
     fetchCourtsMetadata,
     fetchStatus,
     fetchUserHistory,
-    mockDatabase,
-    updateUserDB,
   } = useApp()
 
   const [view, setView] = useState(getInitialView)
@@ -68,6 +84,14 @@ function App() {
     const params = new URLSearchParams(window.location.search)
     return params.get('payment') === 'success' ? readStoredBookingReturn() : null
   })
+
+  useEffect(() => {
+    if (user) return
+
+    setCurrentBooking(null)
+    setReturnedPaymentSuccess(null)
+    setView('login')
+  }, [user])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -115,7 +139,7 @@ function App() {
   }, [fetchUserBalance, fetchStatus, fetchUserHistory, user?.id])
 
   const handleLoginSuccess = async (phone) => {
-    const result = await login(phone, mockDatabase)
+    const result = await login(phone)
     if (result.isRegistered) {
       if (result.wallet_balance !== undefined) {
         setWalletBalance(Number(result.wallet_balance))
@@ -128,7 +152,7 @@ function App() {
   }
 
   const handleRegistrationComplete = async (fields) => {
-    const newUser = await register(fields, mockDatabase, updateUserDB)
+    const newUser = await register(fields)
     if (newUser) {
       setView('profile')
     }
@@ -219,7 +243,7 @@ function App() {
       <Header onViewChange={setView} />
 
       {view === 'login' && <Login onLoginSuccess={handleLoginSuccess} />}
-      {view === 'registration' && <ProfileRegistration onComplete={handleRegistrationComplete} />}
+      {view === 'registration' && <ProfileRegistration onComplete={handleRegistrationComplete} initialPhone={user?.phone || ''} />}
 
       {view === 'profile' && (
         <ProfileDashboard user={user} walletBalance={walletBalance} onStartBooking={handleStartBooking} />

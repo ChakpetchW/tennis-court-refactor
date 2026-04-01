@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { api } from '../services/api'
-import { MOCKED_DB } from '../data/constants'
 import { useAuth } from '../hooks/useAuth'
 import { useWallet } from '../hooks/useWallet'
 import { useCourts } from '../hooks/useCourts'
@@ -23,15 +22,6 @@ export const AppProvider = ({ children }) => {
   const { walletBalance, setWalletBalance, fetchUserBalance, updateWallet } = useWallet()
   const { courts, setCourts, fetchCourtsMetadata } = useCourts()
   const { fetchStatus } = useAllotments()
-
-  const [mockDatabase, setMockDatabase] = useState(() => {
-    try {
-      const saved = localStorage.getItem('court_users_db')
-      return saved ? JSON.parse(saved) : MOCKED_DB
-    } catch {
-      return MOCKED_DB
-    }
-  })
   const [userHistory, setUserHistory] = useState([])
   const [adminBookings, setAdminBookings] = useState([])
 
@@ -72,14 +62,6 @@ export const AppProvider = ({ children }) => {
     } catch (error) {
       console.error('Fetch admin bookings error:', error)
     }
-  }, [])
-
-  const updateUserDB = useCallback((updater) => {
-    setMockDatabase((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      localStorage.setItem('court_users_db', JSON.stringify(next))
-      return next
-    })
   }, [])
 
   useEffect(() => {
@@ -131,9 +113,6 @@ export const AppProvider = ({ children }) => {
         setAdminBookings,
         fetchUserHistory,
         fetchAdminBookings,
-        mockDatabase,
-        setMockDatabase,
-        updateUserDB,
       }}
     >
       {children}

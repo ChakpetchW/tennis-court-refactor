@@ -114,6 +114,18 @@ export const api = {
   getAdminBookings: async (date) =>
     handleResponse(await request(`${BASE_URL}?action=get_admin_bookings&date=${date}&t=${Date.now()}`)),
 
+  getAdminUsers: async () =>
+    handleResponse(await request(`${BASE_URL}?action=get_admin_users&t=${Date.now()}`)),
+
+  adminCreateUser: async (userData) =>
+    handleResponse(await postJson(`${BASE_URL}?action=admin_create_user`, userData)),
+
+  adminUpdateUser: async (userData) =>
+    handleResponse(await postJson(`${BASE_URL}?action=admin_update_user`, userData)),
+
+  adminDeleteUser: async (userId, password) =>
+    handleResponse(await postJson(`${BASE_URL}?action=admin_delete_user`, { user_id: userId, password })),
+
   updateCourtRate: async (id, rate) =>
     handleResponse(await postJson(`${BASE_URL}?action=update_rate`, { id, rate })),
 
@@ -167,4 +179,7 @@ export const api = {
 
   getVersion: async () =>
     handleResponse(await request(`${BASE_URL}?action=version&t=${Date.now()}`)),
+
+  getDynamicConfig: async () =>
+    handleResponse(await request(`${BASE_URL}?action=get_config&t=${Date.now()}`)),
 }

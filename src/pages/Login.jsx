@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { ArrowRight, Lock, Smartphone } from 'lucide-react'
-import { api } from '../services/api'
+import { otpService } from '../services/otpService'
+import { useConfig } from '../context/ConfigContext'
 
 const OTP_RESEND_SECONDS = 300
 
 function Login({ onLoginSuccess }) {
+  const { config: dynamicConfig } = useConfig()
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [step, setStep] = useState('phone')
@@ -30,17 +32,18 @@ function Login({ onLoginSuccess }) {
   }
 
   const handleRequestOTP = async (event) => {
-    event.preventDefault()
+    if (event) event.preventDefault()
     setIsLoading(true)
     setErrorMessage('')
 
     try {
-      await api.requestOTP(phone)
+      await otpService.requestOTP(phone, 'recaptcha-container', dynamicConfig)
+      // Small delay for smooth UI transition
       window.setTimeout(moveToOtpStep, 600)
     } catch (error) {
       console.warn('OTP request failed.', error)
       setIsLoading(false)
-      setErrorMessage(error.message || 'ไม่สามารถส่ง OTP ได้')
+      setErrorMessage(error.message || 'ไม่สามารถส่ง OTP ได้ กรุณาตรวจสอบเบอร์โทรศัพท์')
     }
   }
 
@@ -50,9 +53,14 @@ function Login({ onLoginSuccess }) {
     setErrorMessage('')
 
     try {
-      await api.verifyOTP(phone, otp)
-      setIsLoading(false)
-      onLoginSuccess(phone)
+      const result = await otpService.verifyOTP(otp, phone)
+      if (result.success) {
+        setIsLoading(false)
+        // For Firebase, we use the normalized phone from the user object if available
+        onLoginSuccess(result.phone || phone)
+      } else {
+        throw new Error(result.error || 'OTP ไม่ถูกต้อง')
+      }
     } catch (error) {
       setIsLoading(false)
       setErrorMessage(error.message || 'OTP ไม่ถูกต้องหรือหมดอายุ')
@@ -113,6 +121,9 @@ function Login({ onLoginSuccess }) {
               ยอมรับ <span style={{ color: 'var(--accent-primary)' }}>ข้อกำหนดและนโยบายความเป็นส่วนตัว</span>
             </label>
 
+            {/* Firebase reCAPTCHA anchor */}
+            <div id="recaptcha-container"></div>
+
             <button type="submit" className="premium-button" disabled={isLoading}>
               {isLoading ? 'กำลังประมวลผล...' : 'ขอรับรหัส OTP'} <ArrowRight size={18} style={{ marginLeft: '8px', verticalAlign: 'middle' }} />
             </button>
@@ -145,7 +156,7 @@ function Login({ onLoginSuccess }) {
               {timer > 0 ? (
                 <span style={{ color: 'var(--text-secondary)' }}>ส่งรหัสใหม่ได้ใน {timer} วินาที</span>
               ) : (
-                <button type="button" onClick={(event) => void handleRequestOTP(event)} style={{ color: 'var(--accent-primary)' }}>
+                <button type="button" onClick={() => void handleRequestOTP()} style={{ color: 'var(--accent-primary)' }}>
                   ส่งรหัสอีกครั้ง
                 </button>
               )}
